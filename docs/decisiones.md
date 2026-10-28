@@ -10,7 +10,7 @@ Cada decisión nace de una historia o requisito no funcional. Se revisa contra l
 | 3 | Base de conocimiento | RDS MySQL · S3 + JSON · DynamoDB | **DynamoDB on-demand** | Sin servidor, sin costo fijo, escritura desde el panel de administración y lecturas de un dígito en ms | Costos · Fiabilidad | HU-02 |
 | 4 | Recuperación de contexto | Embeddings + vector DB (OpenSearch/pgvector) · TF-IDF en la Lambda | **TF-IDF en la Lambda sobre las 50 FAQ** | Con 50 documentos el puntaje por términos es suficiente y cabe en el prompt; evita costo de embeddings y una pieza más | Costos · Simplicidad | HU-01 |
 | 5 | Historial de conversación | Sólo navegador · RDS · DynamoDB | **DynamoDB**: PK `sesion`, SK `timestamp`; TTL 30 días | Persistente para la demo, barato y con expiración automática | Costos · Seguridad | HU-01 |
-| 6 | Control de gasto | Confiar en el panel de AWS · sólo Budgets · varias capas | **3 capas**: Budgets con alarma por correo + contador de tokens en DynamoDB que corta al llegar al tope + throttling en API Gateway | El enunciado exige tope configurado; una sola capa se puede saltar | Costos · Seguridad | HU-03 |
+| 6 | Control de gasto | Confiar en el panel de AWS · sólo Budgets · varias capas | **2 capas**: Budgets con el tope de 10 USD (sin suscripciones) + contador de tokens en DynamoDB que corta al llegar al tope | El enunciado exige tope configurado; no se envian correos ni se crean suscripciones | Costos · Seguridad | HU-03 |
 | 7 | Administración de FAQ | Panel propio con token · Cognito · editar el JSON en el repo | **Panel propio con token en SSM Parameter Store** (endurecer en hito 13–14) | “Sin programar” sin pagar Cognito; se audita después | Seguridad · Costos | HU-02 |
 | 8 | CI/CD | Jenkins en la EC2 · GitHub Actions | **GitHub Actions** (cfn-lint + tests + build Docker) | Gratis en repo público, sin servidor Jenkins que mantener ni exponer | Excelencia operativa · Seguridad | RNF-IaC |
 | 9 | Entrega de la infraestructura | Consola · CLI suelta · CloudFormation | **CloudFormation** con stacks por capa, Parámetros y Outputs | Requisito del curso; reproducible desde cero y destruible | Excelencia operativa | RNF-IaC |
@@ -33,7 +33,7 @@ Comprobadas contra la cuenta `287834270100` (rol `voclabs`) antes de diseñar, n
 
 ## Límite de gasto (cómo se aplica)
 
-1. **AWS Budgets** con monto = `TopeGastoUSD` (10) y alerta al 80 % y 100 % al correo del director.
+1. **AWS Budgets** con monto = `TopeGastoUSD` (10). Sin suscriptores: el laboratorio ya tiene su propio tope de crédito y no se envian correos.
 2. **Contador de uso** en la tabla `Uso`: cada consulta suma tokens de entrada/salida; si el costo acumulado del mes supera el tope, la Lambda responde con un mensaje de mantenimiento y no llama al modelo.
 3. **Throttling** del HTTP API (rate/burst) para que un pico no dispare el consumo.
 

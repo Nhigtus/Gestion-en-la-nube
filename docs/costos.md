@@ -59,5 +59,5 @@ bajo y horario de oficina, el contenedor es razonable; 24/7 lo hace 11 veces má
 
 - AWS Cost Explorer filtrado por el tag `Equipo=equipo-8` y por servicio.
 - Contador de tokens en la tabla `Uso` (precio del modelo × tokens) para el costo por consulta.
-- AWS Budgets con umbral al 80 % y proyección al 100 %, con suscripción al correo del director.
+- AWS Budgets con el tope de 10 USD (sin suscripciones: se consulta en la consola y contra el contador de `Uso`).
 - Reporte semanal: horas de EC2, consultas, tokens promedio, costo acumulado y proyección.
