@@ -114,6 +114,8 @@ Las preguntas que el bot no supo responder se convierten en FAQ desde la segunda
 |---|---|
 | Entender cómo se construyó y qué significa cada concepto | `docs/como-se-construyo.md` |
 | Encender, apagar, conectarme y modificar sin ayuda | `docs/guia-operacion.md` |
+| Ver la arquitectura y los 6 pilares | `docs/arquitectura.md` |
+| Revisar la auditoría de seguridad y permisos | `docs/seguridad.md` |
 | Desplegar o destruir el stack | `iac/README.md` |
 | Ver costos medidos y el tope | `docs/costos.md` |
 
@@ -180,9 +182,9 @@ Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
 |---|---|
 | 0 — Ficha del caso | ✅ README, decisiones, costos, backlog e IaC |
 | 6–7 — Servicio en línea | ✅ EC2 + Docker + Ollama; chat, historial, contador de uso, panel de FAQ y preguntas sin respuesta |
-| 9–10 — Arquitectura (Nota 2) | ⏳ diagrama + 6 pilares |
-| 11–12 — Automatización | ⏳ CI con cfn-lint, tests, build y evaluación de calidad; falta el despliegue automático |
-| 13–14 — Seguridad y costos | ⏳ tope y alertas de gasto listos; falta la auditoría IAM (RNF-03) |
+| 9–10 — Arquitectura (Nota 2) | ✅ `docs/arquitectura.md`: diagrama de contexto y contenedores, flujo y 6 pilares |
+| 11–12 — Automatización | ✅ CI con `cfn-lint`, tests, build y evaluación en cada PR. El despliegue a AWS sigue siendo manual y documentado (el laboratorio no permite credenciales seguras en GitHub) |
+| 13–14 — Seguridad y costos | ✅ tope de gasto en 3 capas + auditoría en `docs/seguridad.md` (mínimo privilegio limitado por `LabRole`) |
 | 16 — Sustentación | ⏳ demo |
 | Extra | ✅ Evaluación automática de calidad en el pipeline (mínimo 8/10) |
 
@@ -190,7 +192,7 @@ Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
 
 ```
 app/         app Flask + Dockerfile + compose (app + Ollama) + tests + eval/
-docs/        como-se-construyo.md · guia-operacion.md · decisiones.md · costos.md · prompt.md · eval/historial.md
+docs/        arquitectura.md · seguridad.md · como-se-construyo.md · guia-operacion.md · decisiones.md · costos.md · prompt.md · eval/historial.md
 tests/eval/  set de 10 preguntas con respuesta esperada
 iac/         main.yaml (CloudFormation) + README de despliegue
 .github/     plantilla de historia de usuario y CI (cfn-lint + tests + evaluación)
