@@ -1,0 +1,290 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  GTN-2026-2 — Equipo juanes — Chat de FAQ con IA.
+  Capa de datos y control de gasto del hito 0. Las capas de cómputo (Lambda/API Gateway),
+  frontend y red se agregan como stacks anidados en los hitos 6-7 y 11-12.
+
+Metadata:
+  Curso: GTN-2026-2
+  Equipo: juanes
+  Proyecto: chat-faq-ia
+
+Parameters:
+  NombreEquipo:
+    Type: String
+    Default: juanes
+    MinLength: 3
+    MaxLength: 20
+    AllowedPattern: "^[a-z0-9-]+$"
+    Description: Nombre corto del equipo. Se usa en tags y nombres de recursos.
+
+  NumeroProyecto:
+    Type: String
+    Default: por-asignar
+    AllowedPattern: "^(por-asignar|[0-9]{1,2})$"
+    Description: Número del enunciado asignado por el docente (se usa en el tag Proyecto).
+
+  Ambiente:
+    Type: String
+    Default: lab
+    AllowedValues:
+      - lab
+      - prod
+    Description: Ambiente de despliegue.
+
+  ModeloBedrock:
+    Type: String
+    Default: amazon.nova-micro-v1:0
+    AllowedValues:
+      - amazon.nova-micro-v1:0
+      - amazon.nova-lite-v1:0
+      - anthropic.claude-3-5-haiku-20241022-v1:0
+    Description: Modelo de Bedrock que consumirá la Lambda de chat.
+
+  TopeGastoUSD:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 100
+    Description: Tope mensual de gasto del proyecto, en dólares. Se usa en AWS Budgets.
+
+  EmailAlerta:
+    Type: String
+    Default: ""
+    Description: Correo del director para las alarmas de presupuesto (vacío = no crear la alarma).
+
+  RetencionLogsDias:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 30
+    Description: Días de retención de los logs de CloudWatch.
+
+Conditions:
+  TieneEmailAlerta: !Not [!Equals [!Ref EmailAlerta, ""]]
+
+Resources:
+  # ---------------------------------------------------------------- datos
+  TablaFaq:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "gtn-${NombreEquipo}-faq"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  TablaConversaciones:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "gtn-${NombreEquipo}-conversaciones"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sesion
+          AttributeType: S
+        - AttributeName: ts
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sesion
+          KeyType: HASH
+        - AttributeName: ts
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expira
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  TablaSinRespuesta:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "gtn-${NombreEquipo}-sin-respuesta"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  TablaUso:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub "gtn-${NombreEquipo}-uso"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: mes
+          AttributeType: S
+      KeySchema:
+        - AttributeName: mes
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  # ----------------------------------------------------------- frontend
+  BucketWeb:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BucketName: !Sub "gtn-2026-2-${NombreEquipo}-${AWS::AccountId}-web"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  # ------------------------------------------------------------ alertas
+  TopicoAlertas:
+    Type: AWS::SNS::Topic
+    Condition: TieneEmailAlerta
+    Properties:
+      TopicName: !Sub "gtn-${NombreEquipo}-alertas"
+      DisplayName: Alertas de gasto GTN
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  SuscripcionAlertas:
+    Type: AWS::SNS::Subscription
+    Condition: TieneEmailAlerta
+    Properties:
+      TopicArn: !Ref TopicoAlertas
+      Protocol: email
+      Endpoint: !Ref EmailAlerta
+
+  PresupuestoMensual:
+    Type: AWS::Budgets::Budget
+    Condition: TieneEmailAlerta
+    Properties:
+      Budget:
+        BudgetName: !Sub "gtn-${NombreEquipo}-mensual"
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref TopeGastoUSD
+          Unit: USD
+        CostFilters:
+          TagKeyValue:
+            - !Join ["", ["user:Equipo$", !Ref NombreEquipo]]
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref TopicoAlertas
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref TopicoAlertas
+
+  # --------------------------------------------------------- observabilidad
+  GrupoLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/gtn/${NombreEquipo}/app"
+      RetentionInDays: !Ref RetencionLogsDias
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+Outputs:
+  TablaFaq:
+    Description: Tabla con la base de preguntas y respuestas
+    Value: !Ref TablaFaq
+    Export:
+      Name: !Sub "${AWS::StackName}-TablaFaq"
+
+  TablaConversaciones:
+    Description: Historial de conversaciones (TTL 30 dias)
+    Value: !Ref TablaConversaciones
+    Export:
+      Name: !Sub "${AWS::StackName}-TablaConversaciones"
+
+  TablaSinRespuesta:
+    Description: Preguntas que el bot no supo responder
+    Value: !Ref TablaSinRespuesta
+    Export:
+      Name: !Sub "${AWS::StackName}-TablaSinRespuesta"
+
+  TablaUso:
+    Description: Contador de tokens y costo del mes
+    Value: !Ref TablaUso
+    Export:
+      Name: !Sub "${AWS::StackName}-TablaUso"
+
+  BucketWeb:
+    Description: Bucket del frontend (privado, servido por CloudFront)
+    Value: !Ref BucketWeb
+
+  GrupoLogs:
+    Description: Log group de la aplicacion
+    Value: !Ref GrupoLogs
+
+  ModeloConfigurado:
+    Description: Modelo de Bedrock que usara la Lambda
+    Value: !Ref ModeloBedrock
+
+  TopeGastoMensual:
+    Description: Tope mensual configurado en USD
+    Value: !Ref TopeGastoUSD
