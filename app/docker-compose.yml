@@ -6,10 +6,38 @@ services:
       - "8000:8000"
     environment:
       PORT: "8000"
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      TABLA_FAQ: ${TABLA_FAQ:-gtn-equipo-8-faq}
+      TABLA_CONVERSACIONES: ${TABLA_CONVERSACIONES:-gtn-equipo-8-conversaciones}
+      TABLA_SIN_RESPUESTA: ${TABLA_SIN_RESPUESTA:-gtn-equipo-8-sin-respuesta}
+      TABLA_USO: ${TABLA_USO:-gtn-equipo-8-uso}
+      PROVEEDOR_LLM: ${PROVEEDOR_LLM:-ollama}
+      MODELO: ${MODELO:-qwen2.5:1.5b-instruct}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      TOPE_GASTO_USD: ${TOPE_GASTO_USD:-10}
     restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).status == 200 else 1)"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
+
+  # Modelo en contenedor: en el laboratorio Bedrock esta bloqueado, asi que el
+  # LLM corre local. Se descarga con `docker compose exec ollama ollama pull <modelo>`.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "10m"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    restart: unless-stopped
+    # Sin puertos publicados: solo la app lo alcanza por la red interna de compose.
+
+volumes:
+  ollama:

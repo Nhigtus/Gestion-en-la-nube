@@ -1,41 +1,63 @@
 # Costos (FinOps)
 
-**Presupuesto objetivo del enunciado:** USD 10/mes · **Escenario base:** 10 000 consultas/mes, ~1 500 tokens de entrada y 300 de salida por consulta (pregunta + 6 FAQ de contexto + historial corto).
-**Región de referencia:** `us-east-1`, precios públicos on-demand (octubre 2026). En AWS Academy se descuenta del crédito del laboratorio, no de una tarjeta.
+**Presupuesto objetivo del enunciado:** USD 10/mes · **Escenario base:** 10 000 consultas/mes.
+**Región:** `us-east-1`, precios públicos on-demand (octubre 2026). En AWS Academy se descuenta del crédito del laboratorio.
 
-## Estimado
+## Hallazgo que cambia el diseño
+
+Bedrock está **bloqueado** en esta cuenta (`bedrock:InvokeModel` → `AccessDeniedException`, verificado
+con la CLI y con una Lambda usando `LabRole`). El modelo corre en contenedor en la EC2, y eso cambia
+la estructura de costos: aparece una instancia encendida, que es justo lo que la arquitectura
+serverless evitaba.
+
+## Estimado con modelo en contenedor (lo que se despliega hoy)
 
 | Concepto | Supuesto | Estimado (USD/mes) | Real (USD/mes) | Diferencia y causa |
 |---|---|---|---|---|
-| API Gateway (HTTP API) | 10 000 req × USD 1,00/M | 0,01 | — | |
-| Lambda | 10 000 inv × 1 s × 512 MB (free tier 400 000 GB-s) | 0,00 | — | |
+| EC2 t3.small | 8 h/día × 30 días = 240 h × 0,0208 | 4,99 | — | |
+| EBS gp3 | 20 GB × 0,08/GB (modelo + imágenes Docker) | 1,60 | — | |
 | DynamoDB on-demand | 10 000 lecturas + 20 000 escrituras + 1 GB | 0,03 | — | |
-| Bedrock Nova Micro | 15 M tokens entrada × 0,035/M + 3 M salida × 0,14/M | 0,95 | — | |
-| CloudWatch Logs | 1 GB ingerido + 1 mes de retención | 0,50 | — | |
 | S3 (frontend) | 100 MB + 10 000 GET | 0,01 | — | |
-| CloudFront | 1 GB transferido (free tier 1 TB) | 0,00 | — | |
-| **Total sin EC2** | | **≈ 1,50** | | |
-| EC2 t3.micro (sólo hito 6–7) | 8 h/día × 30 días = 240 h × 0,0104 | 2,50 | — | |
-| EBS gp3 de la EC2 | 8 GB × 0,08/GB | 0,64 | — | |
-| **Total con EC2 encendida 8 h/día** | | **≈ 4,64** | | |
-| **Total con EC2 24/7 (anti-patrón)** | 730 h | ≈ 12,2 | | **Supera el objetivo: por eso la arquitectura final es serverless** |
+| CloudWatch Logs | 1 GB con retención de 7 días | 0,50 | — | |
+| API Gateway / Lambda | no se usan con Ollama | 0,00 | — | |
+| **Total con 8 h/día** | | **≈ 7,13** | | **Cumple ≤ 10** |
+| **Total con la EC2 24/7** | 730 h × 0,0208 + EBS + resto | **≈ 17,32** | | **No cumple**: el modelo en contenedor no puede estar 24/7 bajo el tope |
+
+## Estimado de la arquitectura objetivo (Bedrock, serverless)
+
+| Concepto | Supuesto | Estimado (USD/mes) |
+|---|---|---|
+| API Gateway HTTP API | 10 000 req × 1,00/M | 0,01 |
+| Lambda | 10 000 inv × 1 s × 512 MB | 0,00 (free tier) |
+| DynamoDB on-demand | igual que arriba | 0,03 |
+| Bedrock Nova Micro | 15 M in × 0,035/M + 3 M out × 0,14/M | 0,95 |
+| CloudWatch Logs | 1 GB | 0,50 |
+| **Total 24/7** | | **≈ 1,50** |
 
 ## Costo por consulta
 
-Con el escenario base: **USD 0,00015 por consulta** (≈ 0,15 milésimas de dólar). Una consulta con Claude Haiku en vez de Nova Micro cuesta ~20× más (≈ USD 0,003), todavía dentro del presupuesto si el volumen es de miles y no de millones.
+- **Con Ollama en EC2:** el costo es por tiempo encendido, no por consulta. Con 10 000 consultas/mes
+  repartidas en 240 h, sale **≈ USD 0,0007 por consulta**; con 1 000 consultas sube a 0,007 porque la
+  instancia cuesta lo mismo.
+- **Con Bedrock:** **≈ USD 0,00015 por consulta** (0,15 milésimas).
+
+La lección de FinOps: el modelo gestionado cobra por uso y el contenedor cobra por tiempo. Con tráfico
+bajo y horario de oficina, el contenedor es razonable; 24/7 lo hace 11 veces más caro.
 
 ## Optimizaciones aplicadas
 
-1. **Serverless en lugar de EC2 24/7**: elimina el costo fijo de instancia; sólo se paga por invocación.
-2. **Contexto acotado**: 6 FAQ (~1 500 tokens) en vez de la base completa; `maxTokens` 400 evita respuestas largas.
-3. **Sin embeddings ni vector DB**: el ranking TF-IDF corre dentro de la Lambda a costo cero.
-4. **DynamoDB on-demand + TTL 30 días** en el historial: no se paga capacidad ociosa ni almacenamiento viejo.
-5. **Retención de CloudWatch Logs de 7 días** (en vez de “nunca expira”).
-6. **EC2 sólo para el hito 6–7**, apagada fuera de clase y con `InstanceType` parametrizado.
-7. **Caché de respuestas frecuentes** (a implementar): si la misma pregunta se repite, se responde desde DynamoDB sin llamar al modelo.
+1. **EC2 apagada fuera de clase** (`stop-instances`), que es la diferencia entre USD 7,13 y USD 17,32.
+2. **t3.small en vez de t3.medium** (2 GB alcanzan para un modelo de 1,5B cuantizado, con 2 GB de swap).
+3. **EBS de 20 GB** justo para el modelo y las imágenes; sin snapshots automáticos.
+4. **Un solo contenedor de modelo** (`OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_KEEP_ALIVE=10m`).
+5. **Contexto acotado**: 6 FAQ por consulta en vez de la base completa; `maxTokens` 400.
+6. **DynamoDB on-demand + TTL 30 días** en el historial.
+7. **Retención de logs de 7 días**.
+8. **Sin NAT Gateway ni ALB** (USD 32/mes cada uno): la EC2 tiene IP pública y security group.
 
-## Cómo se medirá el costo real
+## Cómo se mide el costo real
 
-- AWS Cost Explorer filtrado por el tag `Equipo=juanes`, más el costo estimado por tokens que registra la tabla `Uso` (tokens × precio del modelo).
-- Alarma de AWS Budgets al 80 % y 100 % del tope mensual, al correo del director.
-- Reporte semanal: consultas, tokens promedio, costo acumulado y proyección a fin de mes.
+- AWS Cost Explorer filtrado por el tag `Equipo=equipo-8` y por servicio.
+- Contador de tokens en la tabla `Uso` (precio del modelo × tokens) para el costo por consulta.
+- AWS Budgets con umbral al 80 % y proyección al 100 %, con suscripción al correo del director.
+- Reporte semanal: horas de EC2, consultas, tokens promedio, costo acumulado y proyección.

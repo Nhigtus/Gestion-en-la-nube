@@ -1,19 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: >
-  GTN-2026-2 — Equipo juanes — Chat de FAQ con IA.
-  Capa de datos y control de gasto del hito 0. Las capas de cómputo (Lambda/API Gateway),
-  frontend y red se agregan como stacks anidados en los hitos 6-7 y 11-12.
+  GTN-2026-2 — Equipo equipo-8 — Chat de FAQ con IA.
+  Stack unico con secciones por capa (red, datos, computo, alertas). Incluye la EC2
+  con Docker Compose y el modelo en contenedor (Ollama), porque Bedrock no esta
+  habilitado en la cuenta del laboratorio.
 
 Metadata:
   Curso: GTN-2026-2
-  Equipo: juanes
-  Proyecto: chat-faq-ia
+  Equipo: equipo-8
+  Proyecto: "08"
 
 Parameters:
   NombreEquipo:
     Type: String
-    Default: juanes
+    Default: equipo-8
     MinLength: 3
     MaxLength: 20
     AllowedPattern: "^[a-z0-9-]+$"
@@ -21,9 +22,9 @@ Parameters:
 
   NumeroProyecto:
     Type: String
-    Default: por-asignar
-    AllowedPattern: "^(por-asignar|[0-9]{1,2})$"
-    Description: Número del enunciado asignado por el docente (se usa en el tag Proyecto).
+    Default: "08"
+    AllowedPattern: "^[0-9]{1,2}$"
+    Description: Numero del enunciado asignado por el docente.
 
   Ambiente:
     Type: String
@@ -33,39 +34,165 @@ Parameters:
       - prod
     Description: Ambiente de despliegue.
 
-  ModeloBedrock:
+  EmailAlerta:
     Type: String
-    Default: amazon.nova-micro-v1:0
-    AllowedValues:
-      - amazon.nova-micro-v1:0
-      - amazon.nova-lite-v1:0
-      - anthropic.claude-3-5-haiku-20241022-v1:0
-    Description: Modelo de Bedrock que consumirá la Lambda de chat.
+    Default: ""
+    Description: Correo para las alarmas de presupuesto. Vacio = el presupuesto se crea sin suscriptor.
 
   TopeGastoUSD:
     Type: Number
     Default: 10
     MinValue: 1
     MaxValue: 100
-    Description: Tope mensual de gasto del proyecto, en dólares. Se usa en AWS Budgets.
+    Description: Tope mensual de gasto del proyecto, en dolares.
 
-  EmailAlerta:
+  ProveedorLLM:
     Type: String
-    Default: ""
-    Description: Correo del director para las alarmas de presupuesto (vacío = no crear la alarma).
+    Default: ollama
+    AllowedValues:
+      - ollama
+      - bedrock
+    Description: ollama = modelo en contenedor en la EC2 (disponible en el laboratorio); bedrock = API gestionada (requiere habilitacion).
+
+  ModeloOllama:
+    Type: String
+    Default: qwen2.5:1.5b-instruct
+    Description: Modelo que se descarga en el contenedor de Ollama.
+
+  TipoInstancia:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+    Description: t3.micro = 1 GB (no alcanza para el modelo), t3.small = 2 GB, t3.medium = 4 GB.
+
+  ImagenId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: AMI de Amazon Linux 2023 (se resuelve desde SSM, siempre la ultima).
+
+  InstanceProfileName:
+    Type: String
+    Default: LabInstanceProfile
+    Description: Perfil de instancia preexistente. El laboratorio no permite crear roles IAM.
+
+  RepoGit:
+    Type: String
+    Default: https://github.com/Nhigtus/Gestion-en-la-nube
+    Description: Repositorio que se clona en la EC2 para levantar la app con Docker Compose.
+
+  RamaGit:
+    Type: String
+    Default: main
+    Description: Rama que se despliega en la EC2.
 
   RetencionLogsDias:
     Type: Number
     Default: 7
     MinValue: 1
     MaxValue: 30
-    Description: Días de retención de los logs de CloudWatch.
+    Description: Dias de retencion de los logs de CloudWatch.
 
 Conditions:
   TieneEmailAlerta: !Not [!Equals [!Ref EmailAlerta, ""]]
+  UsaOllama: !Equals [!Ref ProveedorLLM, ollama]
 
 Resources:
-  # ---------------------------------------------------------------- datos
+  # ================================================================ RED
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - {Key: Name, Value: !Sub "gtn-${NombreEquipo}-vpc"}
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  SubnetPublica:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.20.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - {Key: Name, Value: !Sub "gtn-${NombreEquipo}-subnet-publica"}
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - {Key: Name, Value: !Sub "gtn-${NombreEquipo}-igw"}
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  TablaRutas:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - {Key: Name, Value: !Sub "gtn-${NombreEquipo}-rt"}
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  RutaInternet:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref TablaRutas
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  AsociacionRuta:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetPublica
+      RouteTableId: !Ref TablaRutas
+
+  # ============================================================ SEGURIDAD
+  GrupoSeguridadWeb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: HTTP publico del chat. Sin SSH abierto.
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Chat web
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Salida para dnf, Docker Hub y descarga del modelo
+      Tags:
+        - {Key: Name, Value: !Sub "gtn-${NombreEquipo}-sg-web"}
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  # ================================================================ DATOS
   TablaFaq:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Delete
@@ -159,7 +286,6 @@ Resources:
         - {Key: Proyecto, Value: !Ref NumeroProyecto}
         - {Key: Ambiente, Value: !Ref Ambiente}
 
-  # ----------------------------------------------------------- frontend
   BucketWeb:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
@@ -183,10 +309,95 @@ Resources:
         - {Key: Proyecto, Value: !Ref NumeroProyecto}
         - {Key: Ambiente, Value: !Ref Ambiente}
 
-  # ------------------------------------------------------------ alertas
+  # ============================================================== COMPUTO
+  InstanciaApp:
+    Type: AWS::EC2::Instance
+    Condition: UsaOllama
+    Properties:
+      ImageId: !Ref ImagenId
+      InstanceType: !Ref TipoInstancia
+      IamInstanceProfile: !Ref InstanceProfileName
+      SubnetId: !Ref SubnetPublica
+      SecurityGroupIds:
+        - !Ref GrupoSeguridadWeb
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euxo pipefail
+            exec > /var/log/gtn-bootstrap.log 2>&1
+
+            # --- Docker + compose plugin
+            dnf install -y docker git
+            systemctl enable --now docker
+            mkdir -p /usr/libexec/docker/cli-plugins
+            curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+              -o /usr/libexec/docker/cli-plugins/docker-compose
+            chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+            ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/bin/docker-compose
+
+            # --- swap de 2 GB (el modelo no cabe comodo en 2 GB de RAM)
+            if [ ! -f /swapfile ]; then
+              dd if=/dev/zero of=/swapfile bs=1M count=2048
+              chmod 600 /swapfile
+              mkswap /swapfile
+              swapon /swapfile
+              echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            fi
+
+            # --- codigo
+            rm -rf /opt/gtn/src
+            git clone --depth 1 --branch ${RamaGit} ${RepoGit} /opt/gtn/src
+
+            # --- configuracion de la app
+            cat > /opt/gtn/src/app/.env <<'ENVEOF'
+            AWS_REGION=us-east-1
+            TABLA_FAQ=gtn-${NombreEquipo}-faq
+            TABLA_CONVERSACIONES=gtn-${NombreEquipo}-conversaciones
+            TABLA_SIN_RESPUESTA=gtn-${NombreEquipo}-sin-respuesta
+            TABLA_USO=gtn-${NombreEquipo}-uso
+            PROVEEDOR_LLM=${ProveedorLLM}
+            MODELO=${ModeloOllama}
+            OLLAMA_URL=http://ollama:11434
+            TOPE_GASTO_USD=${TopeGastoUSD}
+            ENVEOF
+
+            # --- arranque
+            cd /opt/gtn/src/app
+            docker compose up -d --build
+
+            # --- descarga del modelo (persistente en el volumen)
+            for i in $(seq 1 30); do
+              if docker compose exec -T ollama ollama list >/dev/null 2>&1; then break; fi
+              sleep 10
+            done
+            docker compose exec -T ollama ollama pull ${ModeloOllama} || true
+            echo "GTN bootstrap terminado" >> /var/log/gtn-bootstrap.log
+          - {
+              NombreEquipo: !Ref NombreEquipo,
+              RamaGit: !Ref RamaGit,
+              RepoGit: !Ref RepoGit,
+              ProveedorLLM: !Ref ProveedorLLM,
+              ModeloOllama: !Ref ModeloOllama,
+              TopeGastoUSD: !Ref TopeGastoUSD
+            }
+      Tags:
+        - {Key: Name, Value: !Sub "gtn-${NombreEquipo}-app"}
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  # ============================================================== ALERTAS
   TopicoAlertas:
     Type: AWS::SNS::Topic
-    Condition: TieneEmailAlerta
     Properties:
       TopicName: !Sub "gtn-${NombreEquipo}-alertas"
       DisplayName: Alertas de gasto GTN
@@ -206,7 +417,6 @@ Resources:
 
   PresupuestoMensual:
     Type: AWS::Budgets::Budget
-    Condition: TieneEmailAlerta
     Properties:
       Budget:
         BudgetName: !Sub "gtn-${NombreEquipo}-mensual"
@@ -215,9 +425,6 @@ Resources:
         BudgetLimit:
           Amount: !Ref TopeGastoUSD
           Unit: USD
-        CostFilters:
-          TagKeyValue:
-            - !Join ["", ["user:Equipo$", !Ref NombreEquipo]]
       NotificationsWithSubscribers:
         - Notification:
             NotificationType: ACTUAL
@@ -236,7 +443,6 @@ Resources:
             - SubscriptionType: SNS
               Address: !Ref TopicoAlertas
 
-  # --------------------------------------------------------- observabilidad
   GrupoLogs:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -249,6 +455,21 @@ Resources:
         - {Key: Ambiente, Value: !Ref Ambiente}
 
 Outputs:
+  UrlDemo:
+    Description: URL publica del chat (http)
+    Condition: UsaOllama
+    Value: !Sub "http://${InstanciaApp.PublicIp}/"
+
+  IpPublica:
+    Description: IP publica de la EC2 (cambia al detener/encender)
+    Condition: UsaOllama
+    Value: !GetAtt InstanciaApp.PublicIp
+
+  IdInstancia:
+    Description: ID de la instancia para stop/start
+    Condition: UsaOllama
+    Value: !Ref InstanciaApp
+
   TablaFaq:
     Description: Tabla con la base de preguntas y respuestas
     Value: !Ref TablaFaq
@@ -274,7 +495,7 @@ Outputs:
       Name: !Sub "${AWS::StackName}-TablaUso"
 
   BucketWeb:
-    Description: Bucket del frontend (privado, servido por CloudFront)
+    Description: Bucket del frontend (privado)
     Value: !Ref BucketWeb
 
   GrupoLogs:
@@ -282,8 +503,8 @@ Outputs:
     Value: !Ref GrupoLogs
 
   ModeloConfigurado:
-    Description: Modelo de Bedrock que usara la Lambda
-    Value: !Ref ModeloBedrock
+    Description: Modelo que usa el proveedor de LLM
+    Value: !Ref ModeloOllama
 
   TopeGastoMensual:
     Description: Tope mensual configurado en USD
