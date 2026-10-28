@@ -69,7 +69,7 @@ Los cambios de infraestructura entran por PR; el CI corre `cfn-lint` y un `chang
 
 ## Tope de gasto y alertas
 
-El presupuesto `gtn-equipo-8-tope` tiene dos alertas y **ninguna suscripción de correo**:
+El presupuesto `gtn-equipo-8-tope10-alertas` tiene dos alertas y **ninguna suscripción de correo**:
 
 | Alerta | Condición | Destino |
 |---|---|---|
@@ -78,14 +78,20 @@ El presupuesto `gtn-equipo-8-tope` tiene dos alertas y **ninguna suscripción de
 
 ```bash
 aws budgets describe-notifications-for-budget --account-id <cuenta> \
-  --budget-name gtn-equipo-8-tope --output table
+  --budget-name gtn-equipo-8-tope10-alertas --output table
 aws budgets describe-budget --account-id <cuenta> \
-  --budget-name gtn-equipo-8-tope --query 'Budget.CalculatedSpend'
+  --budget-name gtn-equipo-8-tope10-alertas --query 'Budget.CalculatedSpend'
 ```
 
 La segunda barrera está en la app: la tabla `Uso` corta el chat al llegar a `TopeGastoUSD` (o a 5 000
 consultas) y el rate limit devuelve `429` ante un pico. No hay costo extra: Budgets, SNS y DynamoDB
 on-demand entran en la capa gratuita con este volumen.
+
+> **Al cambiar el presupuesto:** CloudFormation **reemplaza** `AWS::Budgets::Budget` cuando cambian
+> sus notificaciones. Si el nombre no cambia, el alta choca con el presupuesto anterior
+> (`AlreadyExists`). Por eso el nombre incluye el monto (`gtn-equipo-8-tope10-alertas`): al cambiar
+> `TopeGastoUSD` se genera un nombre nuevo. Si cambias **solo las alertas**, cambia también el sufijo
+> del nombre (por ejemplo `-alertas2`) en `iac/main.yaml` antes de desplegar.
 
 
 ## Panel de administración (token fuera del repo)

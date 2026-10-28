@@ -116,16 +116,16 @@ alcanza, el chat deja de llamar al modelo y responde con un mensaje de mantenimi
 
 | Barrera | Dónde vive | Qué hace |
 |---|---|---|
-| Presupuesto | AWS Budgets `gtn-equipo-8-tope` | Alerta al **80 % real** y al **100 % proyectado**; se publica en un topic SNS sin suscriptores (no envía correos) |
+| Presupuesto | AWS Budgets `gtn-equipo-8-tope10-alertas` | Alerta al **80 % real** y al **100 % proyectado**; se publica en un topic SNS sin suscriptores (no envía correos) |
 | Contador | DynamoDB `gtn-equipo-8-uso` | Suma consultas, tokens y costo; al llegar a USD 10 o 5 000 consultas el chat responde `429` sin llamar al modelo |
 | Rate limit | Memoria del contenedor | Máximo 30 consultas/minuto por IP (configurable con `RATE_MAX_POR_MINUTO`); el exceso recibe `429` y `Retry-After` |
 
 ```bash
 # alertas y gasto del presupuesto
 aws budgets describe-notifications-for-budget --account-id 287834270100 \
-  --budget-name gtn-equipo-8-tope
+  --budget-name gtn-equipo-8-tope10-alertas
 aws budgets describe-budget --account-id 287834270100 \
-  --budget-name gtn-equipo-8-tope --query 'Budget.CalculatedSpend'
+  --budget-name gtn-equipo-8-tope10-alertas --query 'Budget.CalculatedSpend'
 ```
 
 ### Evaluación automática de calidad (reto extra)

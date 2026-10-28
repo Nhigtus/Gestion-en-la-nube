@@ -57,7 +57,7 @@ bajo y horario de oficina, el contenedor es razonable; 24/7 lo hace 11 veces má
 
 | # | Barrera | Implementación | Efecto |
 |---|---|---|---|
-| 1 | Presupuesto | `AWS::Budgets::Budget` `gtn-equipo-8-tope` con alertas **ACTUAL 80 %** y **FORECASTED 100 %** | Aviso temprano al 80 % del gasto y proyección al 100 %, visible en la consola |
+| 1 | Presupuesto | `AWS::Budgets::Budget` `gtn-equipo-8-tope10-alertas` con alertas **ACTUAL 80 %** y **FORECASTED 100 %** | Aviso temprano al 80 % del gasto y proyección al 100 %, visible en la consola |
 | 2 | Contador | Tabla `gtn-equipo-8-uso`: consultas, tokens y costo del mes | Al llegar a **USD 10** o **5 000 consultas**, `/api/chat` responde `429` con mensaje de mantenimiento y **no llama al modelo** |
 | 3 | Rate limit | 30 consultas/minuto por IP en memoria (`RATE_MAX_POR_MINUTO`) | Un pico recibe `429` + `Retry-After`; con 2 workers de gunicorn el límite efectivo es ~60/min |
 
@@ -66,7 +66,7 @@ registradas en AWS Budgets y no envían correos. Costo de SNS: USD 0 (no hay ent
 
 ```bash
 aws budgets describe-notifications-for-budget --account-id 287834270100 \
-  --budget-name gtn-equipo-8-tope
+  --budget-name gtn-equipo-8-tope10-alertas
 # ACTUAL > 80 % → topic …-alertas-gasto
 # FORECASTED > 100 % → topic …-alertas-gasto
 ```
@@ -86,7 +86,7 @@ aws ce get-cost-and-usage --time-period Start=2026-10-01,End=2026-10-29 \
   --granularity MONTHLY --metrics UnblendedCost \
   --group-by Type=DIMENSION,Key=SERVICE
 aws budgets describe-budget --account-id 287834270100 \
-  --budget-name gtn-equipo-8-tope --query 'Budget.CalculatedSpend'
+  --budget-name gtn-equipo-8-tope10-alertas --query 'Budget.CalculatedSpend'
 ```
 
 | Fuente | Valor | Lectura |
