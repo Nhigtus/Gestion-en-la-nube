@@ -343,6 +343,14 @@ Resources:
             chmod +x /usr/libexec/docker/cli-plugins/docker-compose
             ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/bin/docker-compose
 
+            # buildx: `docker compose build` lo exige (AL2023 no lo trae)
+            BUILDX=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+            if [ -n "$BUILDX" ]; then
+              curl -sSL "https://github.com/docker/buildx/releases/download/$BUILDX/buildx-$BUILDX.linux-amd64" \
+                -o /usr/libexec/docker/cli-plugins/docker-buildx
+              chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+            fi
+
             # --- swap de 2 GB (el modelo no cabe comodo en 2 GB de RAM)
             if [ ! -f /swapfile ]; then
               dd if=/dev/zero of=/swapfile bs=1M count=2048
@@ -365,6 +373,7 @@ Resources:
             TABLA_USO=gtn-${NombreEquipo}-uso
             PROVEEDOR_LLM=${ProveedorLLM}
             MODELO=${ModeloOllama}
+            PUERTO_PUBLICO=80
             OLLAMA_URL=http://ollama:11434
             TOPE_GASTO_USD=${TopeGastoUSD}
             ENVEOF
