@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Entornos y credenciales (NUNCA subir)
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# Empaquetado
+*.zip
+dist/
+build/
+*.egg-info/
+
+# Docker / SO
+.DS_Store
+Thumbs.db
+
+# CloudFormation
+*.template.json
+.cfn-lint-cache/

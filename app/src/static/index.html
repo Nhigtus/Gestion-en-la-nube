@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asistente del programa — FAQ</title>
+  <style>
+    :root { color-scheme: light dark; --acento: #1f6feb; --fondo: #0d1117; --panel: #161b22; --texto: #e6edf3; --tenue: #8b949e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fondo); color: var(--texto);
+           font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px; }
+    main { width: min(720px, 100%); background: var(--panel); border: 1px solid #30363d; border-radius: 12px; overflow: hidden; }
+    header { padding: 16px 20px; border-bottom: 1px solid #30363d; }
+    header h1 { margin: 0; font-size: 1.05rem; }
+    header p { margin: 4px 0 0; color: var(--tenue); font-size: .85rem; }
+    #hilo { padding: 20px; min-height: 280px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; white-space: pre-wrap; }
+    .bot { background: #21262d; border-bottom-left-radius: 4px; }
+    .user { align-self: flex-end; background: var(--acento); border-bottom-right-radius: 4px; }
+    form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #30363d; }
+    input { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: inherit; font: inherit; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; background: var(--acento); color: #fff; font: inherit; cursor: pointer; }
+    button:disabled, input:disabled { opacity: .5; cursor: not-allowed; }
+    footer { padding: 10px 20px; color: var(--tenue); font-size: .75rem; border-top: 1px solid #30363d; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Asistente del programa</h1>
+      <p>Preguntas frecuentes · disponible 24/7</p>
+    </header>
+
+    <div id="hilo" role="log" aria-live="polite">
+      <div class="msg bot">Hola, soy el asistente del programa. Estoy en construcción (hito 0): el chat con IA se habilita en el hito 6–7.</div>
+    </div>
+
+    <form id="form">
+      <input id="pregunta" placeholder="Escribe tu pregunta…" autocomplete="off" disabled>
+      <button type="submit" disabled>Enviar</button>
+    </form>
+
+    <footer>Prototipo académico · las respuestas se basan en la base de FAQ del programa</footer>
+  </main>
+
+  <script>
+    // El endpoint /api/chat se conecta en el hito 6-7 (API Gateway + Lambda + Bedrock).
+    document.getElementById("form").addEventListener("submit", (e) => e.preventDefault());
+  </script>
+</body>
+</html>
