@@ -45,3 +45,73 @@ jobs:
           done
           docker logs gtn
           exit 1
+
+  evaluacion:
+    name: Evaluación de calidad (mínimo 8/10)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: pip install -r app/requirements.txt
+      - name: Evaluar las 10 preguntas
+        id: evaluar
+        run: >
+          python app/eval/evaluar.py
+          --json eval-resultado.json
+          --historial docs/eval/historial.md
+          --version "${GITHUB_SHA::7}"
+      - name: Publicar el reporte como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluacion-calidad
+          path: eval-resultado.json
+          if-no-files-found: ignore
+      - name: Comentar el resultado en el PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let cuerpo = '### Evaluación de calidad\n\nNo se generó el reporte. Revisa el log del job.';
+            if (fs.existsSync('eval-resultado.json')) {
+              const r = JSON.parse(fs.readFileSync('eval-resultado.json', 'utf8'));
+              const filas = r.detalle.map(d =>
+                `| ${d.id} | ${d.pregunta} | ${d.resultado} | ${d.puntaje.toFixed(2)} | ${d.fuentes.join(', ') || '—'} |`
+              ).join('\n');
+              cuerpo = [
+                `### Evaluación de calidad: ${r.aciertos}/${r.total} (${r.aprobado ? 'aprobado' : 'fallido'})`,
+                '',
+                `Alucinaciones: **${r.alucinaciones}** · Mínimo: **${r.umbral_minimo}/${r.total}** · Modo: \`${r.modo}\``,
+                '',
+                '| ID | Pregunta | Resultado | Puntaje | Fuentes |',
+                '|---|---|---|---|---|',
+                filas,
+                '',
+                'Artefacto: `evaluacion-calidad` en esta ejecución.'
+              ].join('\n');
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: cuerpo
+            });
+      - name: Registrar el puntaje histórico
+        if: github.event_name == 'push'
+        run: |
+          if git diff --quiet -- docs/eval/historial.md; then
+            echo "Sin cambios en el histórico"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/eval/historial.md
+          git commit -m "chore(eval): registra el puntaje de ${GITHUB_SHA::7} [skip ci]"
+          git push || echo "No se pudo publicar el histórico (rama protegida); queda como artefacto"

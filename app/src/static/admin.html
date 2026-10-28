@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administración de FAQ — GTN-2026-2</title>
+  <style>
+    :root { color-scheme: dark; --acento: #1f6feb; --fondo: #0d1117; --panel: #161b22; --texto: #e6edf3;
+            --tenue: #8b949e; --borde: #30363d; --ok: #3fb950; --mal: #f85149; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fondo); color: var(--texto); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px; }
+    .ancho { width: min(980px, 100%); margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 1.15rem; }
+    header p { margin: 0; color: var(--tenue); font-size: .8rem; }
+    .crece { flex: 1; }
+    a { color: #79c0ff; font-size: .85rem; }
+    .caja { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    label { display: block; font-size: .8rem; color: var(--tenue); margin: 10px 0 4px; }
+    input, textarea, select { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--borde);
+                              background: #0d1117; color: inherit; font: inherit; }
+    textarea { resize: vertical; min-height: 64px; }
+    button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--borde); background: #21262d;
+             color: var(--texto); font: inherit; font-size: .85rem; cursor: pointer; }
+    button.primario { background: var(--acento); border-color: var(--acento); color: #fff; }
+    button.peligro { color: var(--mal); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .fila { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .fila > input { flex: 1; min-width: 220px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tabs button.activo { background: var(--acento); border-color: var(--acento); color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+    th { color: var(--tenue); font-weight: 500; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; }
+    tr.inactiva td { opacity: .55; }
+    .pregunta { font-weight: 500; }
+    .respuesta { color: var(--tenue); font-size: .8rem; margin-top: 3px; }
+    .etiqueta { display: inline-block; border: 1px solid var(--borde); border-radius: 999px; padding: 1px 8px;
+                font-size: .7rem; color: var(--tenue); }
+    .acciones { display: flex; gap: 6px; justify-content: flex-end; }
+    #aviso { padding: 8px 12px; border-radius: 8px; font-size: .85rem; display: none; margin-bottom: 14px; }
+    #aviso.ok { display: block; background: #12261a; border: 1px solid var(--ok); color: #7ee787; }
+    #aviso.error { display: block; background: #3d1d1d; border: 1px solid var(--mal); color: #ffa198; }
+    .oculto { display: none !important; }
+    .vacio { color: var(--tenue); font-size: .85rem; padding: 10px 0; }
+    .contador { color: var(--tenue); font-size: .8rem; }
+    .pista { color: var(--tenue); font-size: .78rem; margin-top: 6px; }
+    code { background: #0d1117; border: 1px solid var(--borde); border-radius: 5px; padding: 1px 5px; font-size: .78rem; }
+  </style>
+</head>
+<body>
+<div class="ancho">
+  <header>
+    <div class="crece">
+      <h1>Administración de la base de FAQ</h1>
+      <p>Chat de FAQ con IA · GTN-2026-2 · equipo-8</p>
+    </div>
+    <a href="/">← Volver al chat</a>
+  </header>
+
+  <div id="aviso"></div>
+
+  <section class="caja" id="acceso">
+    <strong>Entrar con el token de administración</strong>
+    <p class="pista">
+      El token no está en el repositorio: se genera en el arranque y se guarda cifrado en SSM.
+      <br>Consúltalo con <code>aws ssm get-parameter --name /gtn/equipo-8/admin-token --with-decryption --query Parameter.Value --output text</code>
+    </p>
+    <div class="fila">
+      <input id="token" type="password" placeholder="Pega el token" autocomplete="off">
+      <button class="primario" id="entrar" type="button">Entrar</button>
+    </div>
+  </section>
+
+  <main id="panel" class="oculto">
+    <div class="tabs">
+      <button id="tab-faq" class="activo" type="button">Base de FAQ</button>
+      <button id="tab-sin" type="button">Preguntas sin respuesta</button>
+      <button id="salir" type="button">Salir</button>
+    </div>
+
+    <section class="caja" id="vista-faq">
+      <form id="form-faq">
+        <div class="fila">
+          <div class="crece">
+            <label for="pregunta">Pregunta</label>
+            <input id="pregunta" maxlength="300" required placeholder="¿Cuándo abre la inscripción?">
+          </div>
+          <div>
+            <label for="categoria">Categoría</label>
+            <input id="categoria" maxlength="30" value="general" pattern="[a-z0-9-]{2,30}">
+          </div>
+        </div>
+        <label for="respuesta">Respuesta</label>
+        <textarea id="respuesta" maxlength="2000" required placeholder="La inscripción abre el 15 de abril..."></textarea>
+        <div class="fila" style="margin-top: 12px;">
+          <button class="primario" type="submit" id="guardar">Agregar FAQ</button>
+          <button type="button" id="cancelar" class="oculto">Cancelar edición</button>
+          <span class="contador" id="contador-faqs"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="caja oculto" id="vista-sin">
+      <div class="fila">
+        <div class="crece">
+          <strong>Preguntas que el bot no supo responder</strong>
+          <p class="pista">Ordenadas por frecuencia. Al convertir una en FAQ pasa a la base y desaparece de esta lista.</p>
+        </div>
+        <span class="contador" id="contador-sin"></span>
+      </div>
+      <div id="lista-sin"></div>
+    </section>
+
+    <section class="caja">
+      <div class="fila">
+        <div class="crece">
+          <strong>Tabla de preguntas y respuestas</strong>
+          <p class="pista">Los cambios se aplican en la siguiente consulta, sin desplegar código.</p>
+        </div>
+        <span class="contador" id="contador-total"></span>
+      </div>
+      <div id="tabla-faqs"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const CLAVE = "gtn-admin-token";
+  const aviso = document.getElementById("aviso");
+  const acceso = document.getElementById("acceso");
+  const panel = document.getElementById("panel");
+  const tabla = document.getElementById("tabla-faqs");
+  const listaSin = document.getElementById("lista-sin");
+  const form = document.getElementById("form-faq");
+  const guardar = document.getElementById("guardar");
+  const cancelar = document.getElementById("cancelar");
+
+  let token = sessionStorage.getItem(CLAVE) || "";
+  let editando = null;
+  let faqs = [];
+
+  function avisar(texto, tipo = "ok") {
+    aviso.className = tipo;
+    aviso.textContent = texto;
+    clearTimeout(avisar.t);
+    avisar.t = setTimeout(() => { aviso.className = ""; }, 4000);
+  }
+
+  async function api(ruta, opciones = {}) {
+    const r = await fetch(ruta, {
+      ...opciones,
+      headers: { "Content-Type": "application/json", "X-Admin-Token": token, ...(opciones.headers || {}) }
+    });
+    if (r.status === 401) {
+      sessionStorage.removeItem(CLAVE);
+      token = "";
+      mostrarAcceso();
+      throw new Error("Token inválido");
+    }
+    const datos = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(datos.error || `Error ${r.status}`);
+    return datos;
+  }
+
+  function mostrarAcceso() {
+    acceso.classList.remove("oculto");
+    panel.classList.add("oculto");
+    document.getElementById("token").focus();
+  }
+
+  function mostrarPanel() {
+    acceso.classList.add("oculto");
+    panel.classList.remove("oculto");
+    cargarTodo();
+  }
+
+  function escapar(texto) {
+    return String(texto ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function pintarFaqs() {
+    document.getElementById("contador-faqs").textContent = `${faqs.length} preguntas en la base`;
+    document.getElementById("contador-total").textContent = `${faqs.filter(f => f.activa !== false).length} activas`;
+    if (!faqs.length) { tabla.innerHTML = '<p class="vacio">La base está vacía.</p>'; return; }
+    const filas = faqs.map(f => `
+      <tr class="${f.activa === false ? "inactiva" : ""}">
+        <td>
+          <div class="pregunta">${escapar(f.pregunta)}</div>
+          <div class="respuesta">${escapar(f.respuesta)}</div>
+        </td>
+        <td><span class="etiqueta">${escapar(f.categoria || "general")}</span></td>
+        <td><span class="etiqueta">${escapar(f.id)}</span></td>
+        <td class="acciones">
+          <button type="button" data-editar="${escapar(f.id)}">Editar</button>
+          <button type="button" class="peligro" data-borrar="${escapar(f.id)}">Borrar</button>
+        </td>
+      </tr>`).join("");
+    tabla.innerHTML = `<table><thead><tr><th>Pregunta y respuesta</th><th>Categoría</th><th>Id</th><th></th></tr></thead><tbody>${filas}</tbody></table>`;
+
+    tabla.querySelectorAll("[data-editar]").forEach(b => b.addEventListener("click", () => editar(b.dataset.editar)));
+    tabla.querySelectorAll("[data-borrar]").forEach(b => b.addEventListener("click", () => borrar(b.dataset.borrar)));
+  }
+
+  async function cargarTodo() {
+    try {
+      const datos = await api("/api/admin/faqs");
+      faqs = datos.faqs || [];
+      pintarFaqs();
+      const sin = await api("/api/admin/sin-respuesta?limite=50");
+      pintarSin(sin);
+    } catch (e) {
+      if (e.message !== "Token inválido") avisar(e.message, "error");
+    }
+  }
+
+  function pintarSin(datos) {
+    document.getElementById("contador-sin").textContent = `${datos.total} sin responder`;
+    if (!datos.preguntas.length) {
+      listaSin.innerHTML = '<p class="vacio">Todavía no hay preguntas sin respuesta. 🎉</p>';
+      return;
+    }
+    listaSin.innerHTML = datos.preguntas.map((p, i) => `
+      <div class="caja" style="margin: 12px 0 0; background: #0d1117;">
+        <div class="fila">
+          <div class="crece">
+            <div class="pregunta">${i + 1}. ${escapar(p.pregunta)}</div>
+            <div class="respuesta">${p.veces} ${p.veces === 1 ? "vez" : "veces"} · ${p.sesiones || 1} ${(p.sesiones || 1) === 1 ? "sesión" : "sesiones"} · última: ${escapar(p.ultima_vez || "")}</div>
+          </div>
+          <button type="button" data-convertir="${escapar(p.id)}">Convertir en FAQ</button>
+        </div>
+        <div class="oculto" id="conv-${escapar(p.id)}" style="margin-top: 10px;">
+          <textarea id="resp-${escapar(p.id)}" placeholder="Escribe la respuesta oficial para esta pregunta"></textarea>
+          <div class="fila" style="margin-top: 8px;">
+            <input id="cat-${escapar(p.id)}" value="general" maxlength="30">
+            <button class="primario" type="button" data-enviar="${escapar(p.id)}">Guardar como FAQ</button>
+          </div>
+        </div>
+      </div>`).join("");
+
+    listaSin.querySelectorAll("[data-convertir]").forEach(b => b.addEventListener("click", () => {
+      document.getElementById(`conv-${b.dataset.convertir}`).classList.toggle("oculto");
+    }));
+    listaSin.querySelectorAll("[data-enviar]").forEach(b => b.addEventListener("click", () => convertir(b.dataset.enviar)));
+  }
+
+  async function convertir(id) {
+    const respuesta = document.getElementById(`resp-${id}`).value.trim();
+    const categoria = document.getElementById(`cat-${id}`).value.trim() || "general";
+    if (respuesta.length < 5) { avisar("Escribe la respuesta oficial (mínimo 5 caracteres)", "error"); return; }
+    try {
+      const datos = await api(`/api/admin/sin-respuesta/${encodeURIComponent(id)}/convertir`, {
+        method: "POST",
+        body: JSON.stringify({ respuesta, categoria })
+      });
+      avisar(`Convertida en ${datos.faq.id}. Ya está disponible para el chat.`);
+      cargarTodo();
+    } catch (e) { avisar(e.message, "error"); }
+  }
+
+  function editar(id) {
+    const faq = faqs.find(f => f.id === id);
+    if (!faq) return;
+    editando = id;
+    document.getElementById("pregunta").value = faq.pregunta;
+    document.getElementById("respuesta").value = faq.respuesta;
+    document.getElementById("categoria").value = faq.categoria || "general";
+    guardar.textContent = `Guardar cambios en ${id}`;
+    cancelar.classList.remove("oculto");
+    document.getElementById("pregunta").focus();
+    document.getElementById("vista-faq").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function limpiarFormulario() {
+    editando = null;
+    form.reset();
+    document.getElementById("categoria").value = "general";
+    guardar.textContent = "Agregar FAQ";
+    cancelar.classList.add("oculto");
+  }
+
+  async function borrar(id) {
+    if (!confirm(`¿Borrar la FAQ ${id}? El bot dejará de usarla.`)) return;
+    try {
+      await api(`/api/admin/faqs/${encodeURIComponent(id)}`, { method: "DELETE" });
+      avisar(`${id} borrada.`);
+      if (editando === id) limpiarFormulario();
+      cargarTodo();
+    } catch (e) { avisar(e.message, "error"); }
+  }
+
+  form.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const cuerpo = {
+      pregunta: document.getElementById("pregunta").value,
+      respuesta: document.getElementById("respuesta").value,
+      categoria: document.getElementById("categoria").value
+    };
+    try {
+      if (editando) {
+        await api(`/api/admin/faqs/${encodeURIComponent(editando)}`, { method: "PUT", body: JSON.stringify(cuerpo) });
+        avisar(`${editando} actualizada. El chat ya la usa.`);
+      } else {
+        const datos = await api("/api/admin/faqs", { method: "POST", body: JSON.stringify(cuerpo) });
+        avisar(`${datos.faq.id} agregada a la base.`);
+      }
+      limpiarFormulario();
+      cargarTodo();
+    } catch (e) { avisar(e.message, "error"); }
+  });
+
+  cancelar.addEventListener("click", limpiarFormulario);
+
+  document.getElementById("entrar").addEventListener("click", () => {
+    const valor = document.getElementById("token").value.trim();
+    if (!valor) return;
+    token = valor;
+    sessionStorage.setItem(CLAVE, token);
+    mostrarPanel();
+  });
+
+  document.getElementById("token").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("entrar").click();
+  });
+
+  document.getElementById("salir").addEventListener("click", () => {
+    sessionStorage.removeItem(CLAVE);
+    token = "";
+    document.getElementById("token").value = "";
+    mostrarAcceso();
+  });
+
+  function cambiarTab(cual) {
+    document.getElementById("tab-faq").classList.toggle("activo", cual === "faq");
+    document.getElementById("tab-sin").classList.toggle("activo", cual === "sin");
+    document.getElementById("vista-faq").classList.toggle("oculto", cual !== "faq");
+    document.getElementById("vista-sin").classList.toggle("oculto", cual !== "sin");
+  }
+  document.getElementById("tab-faq").addEventListener("click", () => cambiarTab("faq"));
+  document.getElementById("tab-sin").addEventListener("click", () => cambiarTab("sin"));
+
+  if (token) mostrarPanel(); else mostrarAcceso();
+</script>
+</body>
+</html>

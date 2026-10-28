@@ -61,3 +61,12 @@ bajo y horario de oficina, el contenedor es razonable; 24/7 lo hace 11 veces má
 - Contador de tokens en la tabla `Uso` (precio del modelo × tokens) para el costo por consulta.
 - AWS Budgets con el tope de 10 USD (sin suscripciones: se consulta en la consola y contra el contador de `Uso`).
 - Reporte semanal: horas de EC2, consultas, tokens promedio, costo acumulado y proyección.
+
+## Costo de las piezas nuevas (hito 8)
+
+| Pieza | Costo |
+|---|---|
+| Panel de administración (`/admin`) | USD 0: son endpoints de la misma app |
+| Token en SSM Parameter Store (1 SecureString estándar) | USD 0: el nivel estándar no cobra |
+| Evaluación de calidad en GitHub Actions | USD 0: minutos gratuitos en repo público |
+| Set de 10 preguntas + historial en el repo | USD 0 |

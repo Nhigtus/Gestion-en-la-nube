@@ -28,3 +28,6 @@ Thumbs.db
 # CloudFormation
 *.template.json
 .cfn-lint-cache/
+
+# Reportes de evaluación (se publican como artefacto del CI)
+eval-resultado.json

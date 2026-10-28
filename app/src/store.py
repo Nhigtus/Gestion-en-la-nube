@@ -68,6 +68,28 @@ def guardar_faqs(items: list[dict]) -> int:
     return len(items)
 
 
+def obtener_faq(faq_id: str) -> dict | None:
+    return _tabla(TABLA_FAQ).get_item(Key={"id": faq_id}).get("Item")
+
+
+def guardar_faq(item: dict) -> None:
+    _tabla(TABLA_FAQ).put_item(Item=item)
+
+
+def borrar_faq(faq_id: str) -> None:
+    _tabla(TABLA_FAQ).delete_item(Key={"id": faq_id})
+
+
+def siguiente_id() -> str:
+    """Siguiente id correlativo (faq-027, faq-028, ...)."""
+    numeros = [
+        int(f["id"].split("-")[-1])
+        for f in listar_faq()
+        if str(f.get("id", "")).startswith("faq-") and f["id"].split("-")[-1].isdigit()
+    ]
+    return f"faq-{(max(numeros) + 1) if numeros else 1:03d}"
+
+
 # ---------------------------------------------------------- conversaciones
 def guardar_turno(
     sesion: str,
@@ -105,24 +127,44 @@ def historial(sesion: str, limite: int = 20) -> list[dict]:
 def registrar_sin_respuesta(pregunta: str, sesion: str) -> None:
     limpia = " ".join(pregunta.lower().split())[:300]
     ident = hashlib.sha1(limpia.encode("utf-8")).hexdigest()[:16]
+    clave_sesion = (sesion or "anonima")[:80]
     _tabla(TABLA_SIN).update_item(
         Key={"id": ident},
         UpdateExpression=(
-            "SET pregunta = :p, ultima_vez = :t, "
-            "primera_vez = if_not_exists(primera_vez, :t) "
-            "ADD veces :uno"
+            "SET pregunta = :p, ultima_vez = :t, primera_vez = if_not_exists(primera_vez, :t), "
+            "ultima_sesion = :s "
+            "ADD veces :uno, sesiones :ses"
         ),
         ExpressionAttributeValues={
             ":p": pregunta[:300],
             ":t": _ahora(),
+            ":s": clave_sesion,
+            ":ses": {clave_sesion},
             ":uno": 1,
         },
     )
 
 
+def _normalizar_sin(item: dict) -> dict:
+    """Convierte Decimal y el set de sesiones a tipos que el JSON entiende."""
+    item["veces"] = int(item.get("veces", 0))
+    item["sesiones"] = len(item.get("sesiones") or [])
+    return item
+
+
 def listar_sin_respuesta(limite: int = 50) -> list[dict]:
     items = _tabla(TABLA_SIN).scan().get("Items", [])
-    return sorted(items, key=lambda x: int(x.get("veces", 0)), reverse=True)[:limite]
+    items = [_normalizar_sin(i) for i in items]
+    return sorted(items, key=lambda x: x["veces"], reverse=True)[:limite]
+
+
+def obtener_sin_respuesta(ident: str) -> dict | None:
+    item = _tabla(TABLA_SIN).get_item(Key={"id": ident}).get("Item")
+    return _normalizar_sin(item) if item else None
+
+
+def borrar_sin_respuesta(ident: str) -> None:
+    _tabla(TABLA_SIN).delete_item(Key={"id": ident})
 
 
 # ------------------------------------------------------------------ uso
