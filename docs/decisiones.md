@@ -41,12 +41,12 @@ Comprobadas contra la cuenta `287834270100` (rol `voclabs`) antes de diseñar, n
 
 | Pilar | Cómo lo cumple el diseño | Riesgo detectado |
 |---|---|---|
-| Excelencia operativa | Todo en CloudFormation; CI con cfn-lint; logs estructurados en CloudWatch; un solo comando para crear/destruir | Falta automatizar el despliegue (hito 11–12) |
-| Seguridad | Sin credenciales en el repo; IAM de mínimo privilegio por función; bucket S3 privado; token de administración en SSM; sin puerto 22 abierto | El panel de administración con token compartido debe endurecerse (Cognito o firma) |
+| Excelencia operativa | Todo en CloudFormation; CI con cfn-lint; logs del contenedor en el host; un solo comando para crear/destruir | Falta automatizar el despliegue (hito 11–12) |
+| Seguridad | Sin credenciales en el repo; IAM de mínimo privilegio por función; token de administración en SSM; sin puerto 22 abierto | El panel de administración con token compartido debe endurecerse (Cognito o firma) |
 | Fiabilidad | Lambda y DynamoDB on-demand con reintentos; Bedrock con modelo de respaldo; mensaje claro si se agota el tope | Dependencia de la cuota de Bedrock en la cuenta del laboratorio |
-| Eficiencia de rendimiento | Contexto acotado a 6 FAQ + `maxTokens` 400; caché de respuestas frecuentes en DynamoDB | Latencia de Bedrock en horas pico |
+| Eficiencia de rendimiento | Contexto acotado a 5 FAQ + `num_predict` 300; guardarraíl que evita llamar al modelo sin evidencia | Latencia de inferencia en CPU (~20 s por consulta) |
 | Optimización de costos | Serverless, on-demand, TTL en historial, EC2 sólo 8 h/día, tope de gasto en 3 capas | Si se habilita un modelo grande, el costo por consulta sube 10× |
-| Sostenibilidad | Escala a cero, sin instancias encendidas 24/7, retención de logs limitada | La EC2 del hito 6–7 consume aunque esté ociosa: apagarla |
+| Sostenibilidad | Escala a cero, sin instancias encendidas 24/7, sin servicios de almacenamiento o logs sin uso | La EC2 del hito 6–7 consume aunque esté ociosa: apagarla |
 
 ## Decisiones del hito 6–7 (implementadas)
 

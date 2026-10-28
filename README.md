@@ -9,7 +9,7 @@
 | Integrantes | Juan Esteban Valencia — 1004735345 · Juan Hineztroza — código pendiente |
 | Curso | GTN-2026-2 · Ambiente `lab` · Región `us-east-1` |
 | URL demo | _sale en el Output `UrlDemo` del stack_ |
-| Costo mensual estimado | **≈ USD 7,15** con la EC2 encendida 8 h/día (objetivo: ≤ USD 10) |
+| Costo mensual estimado | **≈ USD 6,63** con la EC2 encendida 8 h/día (objetivo: ≤ USD 10) |
 | Despliegue | `aws cloudformation deploy --template-file iac/main.yaml --stack-name gtn-equipo-8 --capabilities CAPABILITY_NAMED_IAM --parameter-overrides NombreEquipo=equipo-8 NumeroProyecto=08` |
 
 ## 🧩 El problema
@@ -32,9 +32,9 @@ Navegador ──► EC2 t3.small (puerto 80, sin SSH abierto)
                  ├── app (Flask + gunicorn, contenedor)
                  │      ├──► DynamoDB  FAQ · Conversaciones · SinRespuesta · Uso
                  │      └──► Ollama (contenedor) — qwen2.5:1.5b-instruct
-                 └── CloudWatch Logs
-                        ▲
-          AWS Budgets (tope 10 USD, sin suscripciones)
+                 └── logs del contenedor (docker logs)
+
+AWS Budgets (tope 10 USD, sin suscripciones) · SSM (token del panel)
 ```
 
 **Por qué el modelo va en contenedor:** en la cuenta de AWS Academy el acceso a Bedrock está
@@ -73,7 +73,7 @@ y el análisis están en `docs/decisiones.md`.
 
 ## 💰 Costos
 
-Ver `docs/costos.md`. **≈ USD 7,15/mes** con la EC2 8 h/día; **≈ USD 17,30/mes** si queda 24/7.
+Ver `docs/costos.md`. **≈ USD 6,63/mes** con la EC2 8 h/día; **≈ USD 16,81/mes** si queda 24/7.
 Esa diferencia es la razón por la que la arquitectura objetivo es serverless: con Bedrock el mismo
 tráfico cuesta ≈ USD 1,50 y sí puede estar 24/7.
 

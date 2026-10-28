@@ -17,11 +17,9 @@ serverless evitaba.
 | EC2 t3.small | 8 h/día × 30 días = 240 h × 0,0208 | 4,99 | — | |
 | EBS gp3 | 20 GB × 0,08/GB (modelo + imágenes Docker) | 1,60 | — | |
 | DynamoDB on-demand | 10 000 lecturas + 20 000 escrituras + 1 GB | 0,03 | — | |
-| S3 (frontend) | 100 MB + 10 000 GET | 0,01 | — | |
-| CloudWatch Logs | 1 GB con retención de 7 días | 0,50 | — | |
 | API Gateway / Lambda | no se usan con Ollama | 0,00 | — | |
-| **Total con 8 h/día** | | **≈ 7,13** | | **Cumple ≤ 10** |
-| **Total con la EC2 24/7** | 730 h × 0,0208 + EBS + resto | **≈ 17,32** | | **No cumple**: el modelo en contenedor no puede estar 24/7 bajo el tope |
+| **Total con 8 h/día** | | **≈ 6,62** | | **Cumple ≤ 10** |
+| **Total con la EC2 24/7** | 730 h × 0,0208 + EBS + resto | **≈ 16,81** | | **No cumple**: el modelo en contenedor no puede estar 24/7 bajo el tope |
 
 ## Estimado de la arquitectura objetivo (Bedrock, serverless)
 
@@ -46,14 +44,14 @@ bajo y horario de oficina, el contenedor es razonable; 24/7 lo hace 11 veces má
 
 ## Optimizaciones aplicadas
 
-1. **EC2 apagada fuera de clase** (`stop-instances`), que es la diferencia entre USD 7,13 y USD 17,32.
+1. **EC2 apagada fuera de clase** (`stop-instances`), que es la diferencia entre USD 6,62 y USD 16,81.
 2. **t3.small en vez de t3.medium** (2 GB alcanzan para un modelo de 1,5B cuantizado, con 2 GB de swap).
 3. **EBS de 20 GB** justo para el modelo y las imágenes; sin snapshots automáticos.
 4. **Un solo contenedor de modelo** (`OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_KEEP_ALIVE=10m`).
-5. **Contexto acotado**: 6 FAQ por consulta en vez de la base completa; `maxTokens` 400.
+5. **Contexto acotado**: 5 FAQ por consulta en vez de la base completa; `num_predict` 300.
 6. **DynamoDB on-demand + TTL 30 días** en el historial.
-7. **Retención de logs de 7 días**.
-8. **Sin NAT Gateway ni ALB** (USD 32/mes cada uno): la EC2 tiene IP pública y security group.
+7. **Sin NAT Gateway ni ALB** (USD 32/mes cada uno): la EC2 tiene IP pública y security group.
+8. **Sin S3 ni CloudWatch Logs**: los logs del contenedor quedan en el host (`docker logs`).
 
 ## Cómo se mide el costo real
 
