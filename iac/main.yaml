@@ -83,13 +83,6 @@ Parameters:
     Default: main
     Description: Rama que se despliega en la EC2.
 
-  RetencionLogsDias:
-    Type: Number
-    Default: 7
-    MinValue: 1
-    MaxValue: 30
-    Description: Dias de retencion de los logs de CloudWatch.
-
 Conditions:
   UsaOllama: !Equals [!Ref ProveedorLLM, ollama]
 
@@ -280,29 +273,6 @@ Resources:
         - {Key: Proyecto, Value: !Ref NumeroProyecto}
         - {Key: Ambiente, Value: !Ref Ambiente}
 
-  BucketWeb:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    UpdateReplacePolicy: Delete
-    Properties:
-      BucketName: !Sub "gtn-2026-2-${NombreEquipo}-${AWS::AccountId}-web"
-      VersioningConfiguration:
-        Status: Enabled
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      Tags:
-        - {Key: Curso, Value: GTN-2026-2}
-        - {Key: Equipo, Value: !Ref NombreEquipo}
-        - {Key: Proyecto, Value: !Ref NumeroProyecto}
-        - {Key: Ambiente, Value: !Ref Ambiente}
-
   # ============================================================== COMPUTO
   InstanciaApp:
     Type: AWS::EC2::Instance
@@ -419,17 +389,6 @@ Resources:
           Amount: !Ref TopeGastoUSD
           Unit: USD
 
-  GrupoLogs:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/gtn/${NombreEquipo}/app"
-      RetentionInDays: !Ref RetencionLogsDias
-      Tags:
-        - {Key: Curso, Value: GTN-2026-2}
-        - {Key: Equipo, Value: !Ref NombreEquipo}
-        - {Key: Proyecto, Value: !Ref NumeroProyecto}
-        - {Key: Ambiente, Value: !Ref Ambiente}
-
 Outputs:
   UrlDemo:
     Description: URL publica del chat (http)
@@ -469,14 +428,6 @@ Outputs:
     Value: !Ref TablaUso
     Export:
       Name: !Sub "${AWS::StackName}-TablaUso"
-
-  BucketWeb:
-    Description: Bucket del frontend (privado)
-    Value: !Ref BucketWeb
-
-  GrupoLogs:
-    Description: Log group de la aplicacion
-    Value: !Ref GrupoLogs
 
   PanelAdmin:
     Description: Panel para mantener la base de FAQ (el token se lee de SSM)

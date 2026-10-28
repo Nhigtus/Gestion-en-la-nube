@@ -115,16 +115,16 @@ aws ec2 describe-instances --filters "Name=tag:Equipo,Values=equipo-8" \
   --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output table
 ```
 
-> El bucket S3 tiene versionado: si se guardaron objetos, hay que vaciarlo antes de borrar el stack
-> (`aws s3 rm s3://<bucket> --recursive`) o el `delete-stack` fallará.
+> El stack no guarda objetos: la base vive en DynamoDB. No hay bucket ni log group que vaciar
+> antes de `delete-stack`.
 
 ## Costo estimado
 
 | Fase | Recursos con costo | USD/mes |
 |---|---|---|
-| Stack completo, EC2 8 h/día | t3.small 240 h (4,99) + EBS 20 GB (1,60) + DynamoDB/S3/Logs (~0,54) | **≈ 7,13** |
-| Stack completo, EC2 24/7 | t3.small 730 h (15,18) + EBS (1,60) + resto | ≈ 17,32 |
-| Sólo datos (EC2 apagada todo el mes) | DynamoDB/S3/Logs | ≈ 0,55 |
+| Stack completo, EC2 8 h/día | t3.small 240 h (4,99) + EBS 20 GB (1,60) + DynamoDB (~0,03) | **≈ 6,62** |
+| Stack completo, EC2 24/7 | t3.small 730 h (15,18) + EBS (1,60) + DynamoDB (0,03) | ≈ 16,81 |
+| Sólo datos (EC2 apagada todo el mes) | DynamoDB | ≈ 0,03 |
 | Arquitectura objetivo con Bedrock | Lambda + API Gateway + DynamoDB + Bedrock | ≈ 1,50 |
 
 Tope configurado: `TopeGastoUSD` (10) en AWS Budgets, sin suscripciones ni correos.
@@ -136,6 +136,6 @@ El laboratorio tiene además su propio límite de crédito por cuenta.
 |---|---|
 | No se pueden crear roles IAM (`iam:CreateRole` denegado) | Parámetro `InstanceProfileName` (default `LabInstanceProfile`) y Lambda con `LabRole` |
 | Bedrock denegado | Parámetro `ProveedorLLM=ollama` y modelo en contenedor |
-| Sesión de 4 h y crédito limitado | `DeletionPolicy: Delete`, EC2 apagable, logs de 7 días, sin NAT ni ALB |
+| Sesión de 4 h y crédito limitado | `DeletionPolicy: Delete`, EC2 apagable, sin NAT ni ALB |
 | La IP pública cambia | El Output `UrlDemo` se lee después de cada arranque |
-| No se pueden crear roles IAM | El token del panel y las credenciales de la app usan `LabRole` + SSM |
+| Sin clave SSH ni puerto 22 | Acceso sólo por SSM Session Manager |
