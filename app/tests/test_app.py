@@ -85,6 +85,19 @@ def test_pregunta_fuera_de_la_base():
     assert puntaje < retrieval.UMBRAL
 
 
+def test_una_sola_palabra_en_comun_no_alcanza():
+    """Regresión: "campus" hacía pasar "¿Tienen cafetería en el campus?" y el modelo inventaba."""
+    import json
+
+    datos = json.loads(
+        (Path(__file__).resolve().parents[1] / "data" / "faq.json").read_text(encoding="utf-8")
+    )
+    faqs = [{"id": f"faq-{i:03d}", **faq} for i, faq in enumerate(datos["faqs"], 1)]
+    seleccion, puntaje = retrieval.seleccionar("¿Tienen cafetería en el campus?", faqs)
+    assert seleccion == []
+    assert puntaje == 0.0
+
+
 def test_normaliza_tildes_y_mayusculas():
     assert retrieval.terminos("¿CUÁNDO Abre la INSCRIPCIÓN?") == retrieval.terminos(
         "cuando abre inscripcion"
