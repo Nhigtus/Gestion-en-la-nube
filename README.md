@@ -108,6 +108,16 @@ aws ssm get-parameter --name /gtn/equipo-8/admin-token \
 Sin token (o con uno inválido) los endpoints responden `401` y no modifican nada.
 Las preguntas que el bot no supo responder se convierten en FAQ desde la segunda pestaña del panel.
 
+## 🧭 Documentación de operación
+
+| Quiero… | Documento |
+|---|---|
+| Entender cómo se construyó y qué significa cada concepto | `docs/como-se-construyo.md` |
+| Encender, apagar, conectarme y modificar sin ayuda | `docs/guia-operacion.md` |
+| Desplegar o destruir el stack | `iac/README.md` |
+| Ver costos medidos y el tope | `docs/costos.md` |
+
+
 La tercera pestaña, **Consumo**, muestra el mes en curso: consultas, tokens de entrada/salida, costo
 estimado, costo promedio por consulta y una barra con el porcentaje del tope de USD 10. Si el tope se
 alcanza, el chat deja de llamar al modelo y responde con un mensaje de mantenimiento.
@@ -180,7 +190,7 @@ Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
 
 ```
 app/         app Flask + Dockerfile + compose (app + Ollama) + tests + eval/
-docs/        decisiones.md · costos.md · prompt.md · eval/historial.md
+docs/        como-se-construyo.md · guia-operacion.md · decisiones.md · costos.md · prompt.md · eval/historial.md
 tests/eval/  set de 10 preguntas con respuesta esperada
 iac/         main.yaml (CloudFormation) + README de despliegue
 .github/     plantilla de historia de usuario y CI (cfn-lint + tests + evaluación)
