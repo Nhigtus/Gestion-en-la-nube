@@ -48,8 +48,18 @@ Comprobadas contra la cuenta `287834270100` (rol `voclabs`) antes de diseñar, n
 | Optimización de costos | Serverless, on-demand, TTL en historial, EC2 sólo 8 h/día, tope de gasto en 3 capas | Si se habilita un modelo grande, el costo por consulta sube 10× |
 | Sostenibilidad | Escala a cero, sin instancias encendidas 24/7, retención de logs limitada | La EC2 del hito 6–7 consume aunque esté ociosa: apagarla |
 
+## Decisiones del hito 6–7 (implementadas)
+
+| # | Decisión | Alternativa descartada | Por qué |
+|---|---|---|---|
+| 5 | Modelo en contenedor (Ollama `qwen2.5:1.5b-instruct`) con proveedor intercambiable | Bedrock Nova Micro | Bedrock está denegado en la cuenta del laboratorio (probado por CLI y desde Lambda) |
+| 6 | Recuperación TF-IDF con stemming y sinónimos, umbral 0.34 | Embeddings + base vectorial | 26 FAQ caben en el prompt; cero costo y menos piezas |
+| 7 | Sin llamada al modelo si el puntaje no alcanza: mensaje fijo y registro en `SinRespuesta` | Dejar que el modelo decida | Evita alucinaciones (las 3 preguntas fuera de tema puntúan 0.00) |
+| 8 | Token del panel en SSM SecureString, generado al azar en el arranque | Token en `.env` o en la plantilla | Cero secretos en el repo; el CI no lo necesita |
+| 9 | Evaluación de calidad offline en el CI + modo `--url` para la EC2 | Evaluar con el modelo en cada PR | Determinista, rápido y sin descargar 1 GB en el runner; el modo real se corre en la demo |
+
 ## Pendientes de decisión
 
-- Modelo definitivo cuando se confirme el catálogo de Bedrock disponible en AWS Academy (Nova Micro vs. Claude Haiku).
-- Mecanismo de autenticación del panel de administración (token en SSM vs. Cognito).
-- Estrategia de evaluación automática de calidad en el pipeline (reto extra).
+- Mecanismo de autenticación del panel: token compartido (implementado) vs. Cognito si el proyecto crece.
+- Migrar a Bedrock cuando el laboratorio lo permita: ya existe `PROVEEDOR_LLM=bedrock`; falta probar la cuota.
+- Despliegue automático desde el CI (hito 11–12): hoy se hace con SSM Session Manager.

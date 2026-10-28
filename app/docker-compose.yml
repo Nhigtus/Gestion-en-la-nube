@@ -15,6 +15,7 @@ services:
       MODELO: ${MODELO:-qwen2.5:1.5b-instruct}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       TOPE_GASTO_USD: ${TOPE_GASTO_USD:-10}
+      PARAMETRO_TOKEN_ADMIN: ${PARAMETRO_TOKEN_ADMIN:-/gtn/equipo-8/admin-token}
     restart: unless-stopped
     depends_on:
       ollama:

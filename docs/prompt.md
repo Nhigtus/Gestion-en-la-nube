@@ -58,3 +58,18 @@ guardan todos en DynamoDB con TTL de 30 días.
 | Umbral 0.34 | Separa preguntas del dominio de las que no lo son |
 | `num_predict` 300 | Evita respuestas largas y costo innecesario |
 | Temperatura 0.2 | Menos variación entre ejecuciones, más fácil de evaluar |
+
+## Evaluación automática (reto extra)
+
+El set `tests/eval/preguntas.json` tiene 10 preguntas: 7 del dominio (con la FAQ esperada) y 3
+fuera de la base. `app/eval/evaluar.py` calcula:
+
+| Métrica | Cómo se calcula |
+|---|---|
+| Acierto del dominio | La FAQ esperada está entre las 5 que recibe el modelo |
+| Acierto fuera de la base | El guardarraíl la descarta (`puntaje < 0.34`) |
+| Alucinación | Una pregunta fuera de la base supera el umbral y llegaría al modelo sin evidencia |
+
+El CI falla si el puntaje baja de **8/10**, publica el reporte como artefacto, lo comenta en el PR
+y agrega la fila a `docs/eval/historial.md` para comparar versiones del prompt. El modo `--url`
+repite la medición contra la EC2 real (incluye el mensaje fijo y las fuentes citadas).

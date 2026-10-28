@@ -68,6 +68,8 @@ y el análisis están en `docs/decisiones.md`.
 | Acceso a la EC2 | SSM Session Manager | SSH con puerto 22 | Sin puerto abierto ni llaves que rotar |
 | CI | GitHub Actions | Jenkins en la EC2 | Gratis en repo público, sin servidor que mantener |
 | Tope de gasto | Budgets + contador en DynamoDB | Sólo confiar en el panel de AWS | Dos barreras independientes |
+| Token del panel | Generado al azar y guardado en SSM SecureString | Token en `.env` o en la plantilla | Cero secretos en el repo y sin despliegue extra |
+| Evaluación de calidad | Set de 10 preguntas en el CI, mínimo 8/10 | Revisión manual del prompt | Detecta regresiones antes de mezclar |
 
 ## 💰 Costos
 
@@ -83,9 +85,41 @@ tráfico cuesta ≈ USD 1,50 y sí puede estar 24/7.
 | `GET` | `/api/historial/<sesion>` | Historial de la conversación (DynamoDB, TTL 30 días) |
 | `GET` | `/api/uso` | Consultas, tokens y costo del mes contra el tope |
 | `GET` | `/health` | Estado, modelo y proveedor |
+| `GET` | `/admin` | Panel para mantener la base de FAQ (token en SSM, no en el repo) |
+| `GET` | `/api/admin/faqs` | Lista la base completa (requiere `X-Admin-Token`) |
+| `POST` `PUT` `DELETE` | `/api/admin/faqs[/<id>]` | Crea, edita y borra FAQ sin desplegar código |
+| `GET` | `/api/admin/sin-respuesta` | Preguntas que el bot no supo responder, ordenadas por frecuencia |
+| `POST` | `/api/admin/sin-respuesta/<id>/convertir` | Convierte una pregunta sin respuesta en FAQ |
+| `GET` | `/api/admin/reporte` | Totales y top 5 para el reporte semanal |
 
 La base de FAQ se carga sola en el primer arranque (`app/data/faq.json`, 26 preguntas de ejemplo).
 El prompt y la estrategia de contexto están documentados en `docs/prompt.md`.
+
+### Panel de administración
+
+En `http://<ip>/admin` el asistente edita la base en vivo. El token **no está en el repositorio**:
+se genera al azar en el arranque y se guarda cifrado en SSM (`/gtn/equipo-8/admin-token`).
+
+```bash
+aws ssm get-parameter --name /gtn/equipo-8/admin-token \
+  --with-decryption --query Parameter.Value --output text
+```
+
+Sin token (o con uno inválido) los endpoints responden `401` y no modifican nada.
+Las preguntas que el bot no supo responder se convierten en FAQ desde la segunda pestaña del panel.
+
+### Evaluación automática de calidad (reto extra)
+
+`tests/eval/preguntas.json` tiene 10 preguntas (7 del dominio y 3 fuera de la base) y
+`app/eval/evaluar.py` calcula aciertos y alucinaciones. El pipeline falla si baja de **8/10**,
+publica el reporte como artefacto, comenta el resultado en el PR y guarda el histórico en
+`docs/eval/historial.md`.
+
+```bash
+python app/eval/evaluar.py                                   # offline: recuperación + guardarraíl
+python app/eval/evaluar.py --url http://<ip>                 # endpoint real de la EC2
+python app/eval/evaluar.py --simular-regresion               # demuestra el pipeline en rojo
+```
 
 ## 🚀 Cómo levantar en local
 
@@ -115,19 +149,21 @@ Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
 | Hito | Estado |
 |---|---|
 | 0 — Ficha del caso | ✅ README, decisiones, costos, backlog e IaC |
-| 6–7 — Servicio en línea | ✅ EC2 + Docker + Ollama; chat con FAQ, historial y contador de uso |
+| 6–7 — Servicio en línea | ✅ EC2 + Docker + Ollama; chat, historial, contador de uso, panel de FAQ y preguntas sin respuesta |
 | 9–10 — Arquitectura (Nota 2) | ⏳ diagrama + 6 pilares |
-| 11–12 — Automatización | ⏳ CI/CD + stack completo |
+| 11–12 — Automatización | ⏳ CI con cfn-lint, tests, build y evaluación de calidad; falta el despliegue automático |
 | 13–14 — Seguridad y costos | ⏳ auditoría IAM + FinOps |
 | 16 — Sustentación | ⏳ demo |
+| Extra | ✅ Evaluación automática de calidad en el pipeline (mínimo 8/10) |
 
 ## 🗂️ Estructura
 
 ```
-app/         app Flask + Dockerfile + compose (app + Ollama) + tests
-docs/        decisiones.md · costos.md
+app/         app Flask + Dockerfile + compose (app + Ollama) + tests + eval/
+docs/        decisiones.md · costos.md · prompt.md · eval/historial.md
+tests/eval/  set de 10 preguntas con respuesta esperada
 iac/         main.yaml (CloudFormation) + README de despliegue
-.github/     plantilla de historia de usuario y CI (cfn-lint + tests + build)
+.github/     plantilla de historia de usuario y CI (cfn-lint + tests + evaluación)
 ```
 
 ## 🔀 Flujo de trabajo

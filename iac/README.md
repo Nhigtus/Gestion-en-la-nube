@@ -51,6 +51,40 @@ aws cloudformation deploy ...   # mismo comando: es idempotente
 
 Los cambios de infraestructura entran por PR; el CI corre `cfn-lint` y un `change set` manual antes de aplicar.
 
+> La EC2 exige **IMDSv2** (`HttpTokens: required`) con `HttpPutResponseHopLimit: 2`, definido en
+> `MetadataOptions`. Es lo que permite que el contenedor de la app obtenga las credenciales de
+> `LabRole` para hablar con DynamoDB.
+
+## Panel de administración (token fuera del repo)
+
+La plantilla no contiene ningún token: la primera vez que la app atiende una petición de
+administración genera uno al azar y lo guarda cifrado (`SecureString`) en SSM, en la ruta del
+Output `ParametroTokenAdmin` (`/gtn/equipo-8/admin-token`).
+
+```bash
+aws ssm get-parameter --name /gtn/equipo-8/admin-token \
+  --with-decryption --query Parameter.Value --output text
+# abrir http://<IpPublica>/admin y pegar el token
+```
+
+Rotarlo cuando haga falta (el contenedor lo relee al reiniciar):
+
+```bash
+aws ssm put-parameter --name /gtn/equipo-8/admin-token --type SecureString \
+  --value "$(openssl rand -base64 24)" --overwrite
+docker compose -f /opt/gtn/src/app/docker-compose.yml restart app
+```
+
+## Evaluación de calidad
+
+El set de 10 preguntas vive en `tests/eval/` y lo corre el job `evaluacion` del CI (mínimo 8/10).
+En local, sin modelo:
+
+```bash
+python app/eval/evaluar.py
+python app/eval/evaluar.py --simular-regresion   # debe salir con código 1
+```
+
 ## Detener (ahorrar crédito)
 
 La EC2 es el único recurso que cobra por tiempo. Apágala al terminar cada sesión:
@@ -104,3 +138,4 @@ El laboratorio tiene además su propio límite de crédito por cuenta.
 | Bedrock denegado | Parámetro `ProveedorLLM=ollama` y modelo en contenedor |
 | Sesión de 4 h y crédito limitado | `DeletionPolicy: Delete`, EC2 apagable, logs de 7 días, sin NAT ni ALB |
 | La IP pública cambia | El Output `UrlDemo` se lee después de cada arranque |
+| No se pueden crear roles IAM | El token del panel y las credenciales de la app usan `LabRole` + SSM |

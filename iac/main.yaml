@@ -314,6 +314,12 @@ Resources:
       SubnetId: !Ref SubnetPublica
       SecurityGroupIds:
         - !Ref GrupoSeguridadWeb
+      # El contenedor consulta el metadata service para obtener las credenciales
+      # del rol (DynamoDB). Con hop limit 1 el trafico del contenedor no llega.
+      MetadataOptions:
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+        HttpEndpoint: enabled
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -370,6 +376,7 @@ Resources:
             PUERTO_PUBLICO=80
             OLLAMA_URL=http://ollama:11434
             TOPE_GASTO_USD=${TopeGastoUSD}
+            PARAMETRO_TOKEN_ADMIN=/gtn/${NombreEquipo}/admin-token
             ENVEOF
 
             # --- arranque
@@ -470,6 +477,15 @@ Outputs:
   GrupoLogs:
     Description: Log group de la aplicacion
     Value: !Ref GrupoLogs
+
+  PanelAdmin:
+    Description: Panel para mantener la base de FAQ (el token se lee de SSM)
+    Condition: UsaOllama
+    Value: !Sub "http://${InstanciaApp.PublicIp}/admin"
+
+  ParametroTokenAdmin:
+    Description: Parametro SSM (SecureString) con el token del panel; no esta en el repo
+    Value: !Sub "/gtn/${NombreEquipo}/admin-token"
 
   ModeloConfigurado:
     Description: Modelo que usa el proveedor de LLM

@@ -1,0 +1,56 @@
+{
+  "nota": "Set de evaluación del chat de FAQ. 7 preguntas del dominio y 3 fuera de la base. Un acierto del dominio exige que la FAQ esperada esté entre las 5 que recibe el modelo; una pregunta fuera de la base sólo acierta si el guardarraíl la descarta (puntaje < umbral). Si una pregunta de fuera de la base supera el umbral se cuenta como alucinación.",
+  "umbral_minimo": 8,
+  "preguntas": [
+    {
+      "id": "q01",
+      "pregunta": "¿Hasta cuándo puedo inscribirme?",
+      "esperadas": ["faq-001", "faq-016"]
+    },
+    {
+      "id": "q02",
+      "pregunta": "¿Cuánto vale el semestre?",
+      "esperadas": ["faq-003"]
+    },
+    {
+      "id": "q03",
+      "pregunta": "¿Hay becas o descuentos?",
+      "esperadas": ["faq-004", "faq-026"]
+    },
+    {
+      "id": "q04",
+      "pregunta": "¿Cómo homologo materias de otro programa?",
+      "esperadas": ["faq-006"]
+    },
+    {
+      "id": "q05",
+      "pregunta": "¿A qué hora atiende el coordinador?",
+      "esperadas": ["faq-010"]
+    },
+    {
+      "id": "q06",
+      "pregunta": "¿Cuándo son los exámenes finales?",
+      "esperadas": ["faq-005"]
+    },
+    {
+      "id": "q07",
+      "pregunta": "¿Cómo saco el carné estudiantil?",
+      "esperadas": ["faq-022"]
+    },
+    {
+      "id": "q08",
+      "pregunta": "¿Cómo preparo una pizza napolitana?",
+      "fuera": true
+    },
+    {
+      "id": "q09",
+      "pregunta": "¿Quién ganó el mundial de fútbol?",
+      "fuera": true
+    },
+    {
+      "id": "q10",
+      "pregunta": "¿Dónde compro un celular barato?",
+      "fuera": true
+    }
+  ]
+}
