@@ -24,10 +24,10 @@ export AWS_REGION=us-east-1
 
 aws cloudformation deploy \
   --template-file iac/main.yaml \
-  --stack-name gtn-juanes \
+  --stack-name gtn-equipo-8 \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
-      NombreEquipo=juanes \
+      NombreEquipo=equipo-8 \
       NumeroProyecto=NN \
       EmailAlerta=director@ejemplo.com \
       TopeGastoUSD=10
@@ -36,11 +36,11 @@ aws cloudformation deploy \
 Ver el progreso y los errores:
 
 ```bash
-aws cloudformation describe-stack-events --stack-name gtn-juanes \
+aws cloudformation describe-stack-events --stack-name gtn-equipo-8 \
   --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
   --output table
 
-aws cloudformation describe-stacks --stack-name gtn-juanes \
+aws cloudformation describe-stacks --stack-name gtn-equipo-8 \
   --query 'Stacks[0].Outputs' --output table
 ```
 
@@ -54,25 +54,31 @@ Los cambios de infraestructura entran por PR; el CI corre `cfn-lint` y un `chang
 
 ## Detener (ahorrar crédito)
 
-Este stack no tiene cómputo permanente (hito 0). Cuando exista la EC2 del hito 6–7:
+La EC2 es el único recurso que cobra por tiempo. Apágala al terminar cada sesión:
 
 ```bash
-aws ec2 stop-instances --instance-ids <id>          # detener
-aws ec2 start-instances --instance-ids <id>         # encender
+aws ec2 stop-instances --instance-ids <IdInstancia>
+aws ec2 start-instances --instance-ids <IdInstancia>
+aws ec2 describe-instances --instance-ids <IdInstancia> \
+  --query 'Reservations[].Instances[].[State.Name,PublicIpAddress]' --output table
 ```
+
+> La IP pública cambia al detener/encender: el Output `UrlDemo` se consulta después de arrancar.
+> Los contenedores vuelven solos (`restart: unless-stopped` + Docker habilitado en el arranque),
+> pero la app puede tardar 1-2 min y el modelo se recarga en la primera consulta.
 
 ## Destruir
 
 ```bash
-aws cloudformation delete-stack --stack-name gtn-juanes
-aws cloudformation wait stack-delete-complete --stack-name gtn-juanes
+aws cloudformation delete-stack --stack-name gtn-equipo-8
+aws cloudformation wait stack-delete-complete --stack-name gtn-equipo-8
 ```
 
 Comprobar que no quedó nada cobrando:
 
 ```bash
 aws cloudformation list-stacks --stack-status-filter DELETE_FAILED --output table
-aws ec2 describe-instances --filters "Name=tag:Equipo,Values=juanes" \
+aws ec2 describe-instances --filters "Name=tag:Equipo,Values=equipo-8" \
   --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output table
 ```
 
@@ -83,8 +89,18 @@ aws ec2 describe-instances --filters "Name=tag:Equipo,Values=juanes" \
 
 | Fase | Recursos con costo | USD/mes |
 |---|---|---|
-| Hito 0 (este stack) | DynamoDB on-demand (casi 0), S3 (centavos), Logs 7 días, Budgets (gratis) | ≈ 0,05 |
-| Con API + Lambda + Bedrock (10k consultas) | + Bedrock ≈ 0,95, Logs ≈ 0,50 | ≈ 1,50 |
-| Con EC2 del hito 6–7 (8 h/día) | + t3.micro 2,50 + EBS 0,64 | ≈ 4,64 |
+| Stack completo, EC2 8 h/día | t3.small 240 h (4,99) + EBS 20 GB (1,60) + DynamoDB/S3/Logs (~0,54) | **≈ 7,13** |
+| Stack completo, EC2 24/7 | t3.small 730 h (15,18) + EBS (1,60) + resto | ≈ 17,32 |
+| Sólo datos (EC2 apagada todo el mes) | DynamoDB/S3/Logs | ≈ 0,55 |
+| Arquitectura objetivo con Bedrock | Lambda + API Gateway + DynamoDB + Bedrock | ≈ 1,50 |
 
 Tope duro configurado: `TopeGastoUSD` (10) con alarma al 80 % y proyección al 100 %.
+
+## Límites del laboratorio (importante)
+
+| Límite | Cómo lo resuelve el template |
+|---|---|
+| No se pueden crear roles IAM (`iam:CreateRole` denegado) | Parámetro `InstanceProfileName` (default `LabInstanceProfile`) y Lambda con `LabRole` |
+| Bedrock denegado | Parámetro `ProveedorLLM=ollama` y modelo en contenedor |
+| Sesión de 4 h y crédito limitado | `DeletionPolicy: Delete`, EC2 apagable, logs de 7 días, sin NAT ni ALB |
+| La IP pública cambia | El Output `UrlDemo` se lee después de cada arranque |
