@@ -46,6 +46,19 @@
     .contador { color: var(--tenue); font-size: .8rem; }
     .pista { color: var(--tenue); font-size: .78rem; margin-top: 6px; }
     code { background: #0d1117; border: 1px solid var(--borde); border-radius: 5px; padding: 1px 5px; font-size: .78rem; }
+    .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+    .tarjeta { background: #0d1117; border: 1px solid var(--borde); border-radius: 10px; padding: 12px; }
+    .tarjeta span { display: block; color: var(--tenue); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+    .tarjeta strong { display: block; font-size: 1.35rem; margin-top: 4px; }
+    .tarjeta small { color: var(--tenue); font-size: .74rem; }
+    .barra { height: 10px; background: #0d1117; border: 1px solid var(--borde); border-radius: 999px; overflow: hidden; }
+    .barra > div { height: 100%; background: var(--ok); transition: width .3s; }
+    .barra > div.medio { background: #d29922; }
+    .barra > div.alto { background: var(--mal); }
+    .alerta-tope { margin-top: 12px; padding: 9px 12px; border-radius: 8px; font-size: .85rem;
+                   background: #3d1d1d; border: 1px solid var(--mal); color: #ffa198; }
+    .ok-tope { margin-top: 12px; padding: 9px 12px; border-radius: 8px; font-size: .85rem;
+               background: #12261a; border: 1px solid var(--ok); color: #7ee787; }
   </style>
 </head>
 <body>
@@ -76,6 +89,7 @@
     <div class="tabs">
       <button id="tab-faq" class="activo" type="button">Base de FAQ</button>
       <button id="tab-sin" type="button">Preguntas sin respuesta</button>
+      <button id="tab-consumo" type="button">Consumo</button>
       <button id="salir" type="button">Salir</button>
     </div>
 
@@ -112,7 +126,22 @@
       <div id="lista-sin"></div>
     </section>
 
-    <section class="caja">
+    <section class="caja oculto" id="vista-consumo">
+      <div class="fila">
+        <div class="crece">
+          <strong>Consumo del mes y tope de gasto</strong>
+          <p class="pista">
+            El contador vive en DynamoDB (tabla <code>Uso</code>). Al llegar al tope el chat responde
+            con un mensaje de mantenimiento y no llama al modelo. AWS Budgets avisa al 80 % real y al
+            100 % proyectado (sin suscripciones: se consulta en la consola).
+          </p>
+        </div>
+        <button type="button" id="actualizar-consumo">Actualizar</button>
+      </div>
+      <div id="consumo"></div>
+    </section>
+
+    <section class="caja" id="vista-tabla-faq">
       <div class="fila">
         <div class="crece">
           <strong>Tabla de preguntas y respuestas</strong>
@@ -209,8 +238,33 @@
       pintarFaqs();
       const sin = await api("/api/admin/sin-respuesta?limite=50");
       pintarSin(sin);
+      await cargarConsumo();
     } catch (e) {
       if (e.message !== "Token inválido") avisar(e.message, "error");
+    }
+  }
+
+  async function cargarConsumo() {
+    const caja = document.getElementById("consumo");
+    try {
+      const r = await fetch("/api/uso");
+      const u = await r.json();
+      const clase = u.porcentaje_usado >= 100 ? "alto" : u.porcentaje_usado >= 80 ? "medio" : "";
+      const estado = u.costo_usd < u.tope_usd && u.consultas < u.max_consultas
+        ? `<div class="ok-tope">Dentro del tope: quedan ${u.consultas_restantes} consultas y ${u.restante_usd.toFixed(2)} USD.</div>`
+        : `<div class="alerta-tope">Tope alcanzado: el chat responde con un mensaje de mantenimiento y no llama al modelo hasta el próximo mes.</div>`;
+      caja.innerHTML = `
+        <div class="tarjetas">
+          <div class="tarjeta"><span>Consultas del mes</span><strong>${u.consultas}</strong><small>de ${u.max_consultas} permitidas</small></div>
+          <div class="tarjeta"><span>Tokens</span><strong>${u.tokens_total.toLocaleString("es-CO")}</strong><small>${u.tokens_entrada.toLocaleString("es-CO")} entrada · ${u.tokens_salida.toLocaleString("es-CO")} salida</small></div>
+          <div class="tarjeta"><span>Costo estimado</span><strong>${u.costo_usd.toFixed(4)} USD</strong><small>de ${u.tope_usd.toFixed(2)} USD</small></div>
+          <div class="tarjeta"><span>Costo por consulta</span><strong>${u.costo_promedio.toFixed(5)} USD</strong><small>promedio de ${u.mes}</small></div>
+        </div>
+        <div class="barra"><div class="${clase}" style="width:${Math.min(100, u.porcentaje_usado)}%"></div></div>
+        <p class="pista">${u.porcentaje_usado} % del tope mensual usado · ${u.restante_usd.toFixed(2)} USD disponibles.</p>
+        ${estado}`;
+    } catch (e) {
+      caja.innerHTML = '<p class="vacio">No pude leer el contador de uso.</p>';
     }
   }
 
@@ -333,11 +387,17 @@
   function cambiarTab(cual) {
     document.getElementById("tab-faq").classList.toggle("activo", cual === "faq");
     document.getElementById("tab-sin").classList.toggle("activo", cual === "sin");
+    document.getElementById("tab-consumo").classList.toggle("activo", cual === "consumo");
     document.getElementById("vista-faq").classList.toggle("oculto", cual !== "faq");
+    document.getElementById("vista-tabla-faq").classList.toggle("oculto", cual !== "faq");
     document.getElementById("vista-sin").classList.toggle("oculto", cual !== "sin");
+    document.getElementById("vista-consumo").classList.toggle("oculto", cual !== "consumo");
+    if (cual === "consumo") cargarConsumo();
   }
   document.getElementById("tab-faq").addEventListener("click", () => cambiarTab("faq"));
   document.getElementById("tab-sin").addEventListener("click", () => cambiarTab("sin"));
+  document.getElementById("tab-consumo").addEventListener("click", () => cambiarTab("consumo"));
+  document.getElementById("actualizar-consumo").addEventListener("click", cargarConsumo);
 
   if (token) mostrarPanel(); else mostrarAcceso();
 </script>

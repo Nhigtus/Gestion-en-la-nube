@@ -51,15 +51,48 @@ aws cloudformation deploy ...   # mismo comando: es idempotente
 
 Los cambios de infraestructura entran por PR; el CI corre `cfn-lint` y un `change set` manual antes de aplicar.
 
+> **Importante al actualizar con la EC2 detenida:** los Outputs `UrlDemo`, `IpPublica` y `PanelAdmin`
+> usan `!GetAtt InstanciaApp.PublicIp`. Una instancia apagada no tiene IP pública, así que el update
+> falla con `Attribute 'PublicIp' does not exist` y CloudFormation hace rollback. Enciende la
+> instancia antes de desplegar y vuelve a apagarla después:
+>
+> ```bash
+> aws ec2 start-instances --instance-ids <IdInstancia>
+> aws ec2 wait instance-running --instance-ids <IdInstancia>
+> aws cloudformation deploy ...   # mismo comando
+> aws ec2 stop-instances --instance-ids <IdInstancia>
+> ```
+
 > La EC2 exige **IMDSv2** (`HttpTokens: required`) con `HttpPutResponseHopLimit: 2`, definido en
 > `MetadataOptions`. Es lo que permite que el contenedor de la app obtenga las credenciales de
 > `LabRole` para hablar con DynamoDB.
 
+## Tope de gasto y alertas
+
+El presupuesto `gtn-equipo-8-tope` tiene dos alertas y **ninguna suscripción de correo**:
+
+| Alerta | Condición | Destino |
+|---|---|---|
+| Gasto real | `ACTUAL > 80 %` del tope | Topic SNS `gtn-equipo-8-alertas-gasto` (sin suscriptores) |
+| Proyección | `FORECASTED > 100 %` del tope | El mismo topic |
+
+```bash
+aws budgets describe-notifications-for-budget --account-id <cuenta> \
+  --budget-name gtn-equipo-8-tope --output table
+aws budgets describe-budget --account-id <cuenta> \
+  --budget-name gtn-equipo-8-tope --query 'Budget.CalculatedSpend'
+```
+
+La segunda barrera está en la app: la tabla `Uso` corta el chat al llegar a `TopeGastoUSD` (o a 5 000
+consultas) y el rate limit devuelve `429` ante un pico. No hay costo extra: Budgets, SNS y DynamoDB
+on-demand entran en la capa gratuita con este volumen.
+
+
 ## Panel de administración (token fuera del repo)
 
-La plantilla no contiene ningún token: la primera vez que la app atiende una petición de
-administración genera uno al azar y lo guarda cifrado (`SecureString`) en SSM, en la ruta del
-Output `ParametroTokenAdmin` (`/gtn/equipo-8/admin-token`).
+La plantilla no contiene ningún token: el contenedor genera uno al azar en el arranque y lo guarda
+cifrado (`SecureString`) en SSM, en la ruta del Output `ParametroTokenAdmin`
+(`/gtn/equipo-8/admin-token`). Si se borra el parámetro, el siguiente reinicio lo recrea.
 
 ```bash
 aws ssm get-parameter --name /gtn/equipo-8/admin-token \

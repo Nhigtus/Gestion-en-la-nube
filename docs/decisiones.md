@@ -57,6 +57,9 @@ Comprobadas contra la cuenta `287834270100` (rol `voclabs`) antes de diseñar, n
 | 7 | Sin llamada al modelo si el puntaje no alcanza: mensaje fijo y registro en `SinRespuesta` | Dejar que el modelo decida | Evita alucinaciones (las 3 preguntas fuera de tema puntúan 0.00) |
 | 8 | Token del panel en SSM SecureString, generado al azar en el arranque | Token en `.env` o en la plantilla | Cero secretos en el repo; el CI no lo necesita |
 | 9 | Evaluación de calidad offline en el CI + modo `--url` para la EC2 | Evaluar con el modelo en cada PR | Determinista, rápido y sin descargar 1 GB en el runner; el modo real se corre en la demo |
+| 10 | Tope en dos capas: AWS Budgets (avisa) + contador en DynamoDB (corta) | Sólo confiar en Budgets | Budgets no detiene el servicio; el contador responde `429` sin llamar al modelo |
+| 11 | Alertas de presupuesto a un topic SNS sin suscriptores | Enviar correos al director | Cumple las alertas 80 %/100 % sin suscribir a nadie y sin costo |
+| 12 | Rate limit en memoria por IP (30/min) | Contador en DynamoDB o WAF | Cero piezas y cero costo; con 2 workers el límite efectivo es ~60/min, aceptable para el laboratorio |
 
 ## Pendientes de decisión
 
