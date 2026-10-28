@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "nota": "Base de ejemplo para la demo. El asistente del programa la reemplaza por las 50 preguntas reales (HU-02).",
+  "faqs": [
+    {
+      "pregunta": "¿Cuándo abre la inscripción?",
+      "respuesta": "La inscripción para el semestre 2026-2 abre el 15 de abril y cierra el 30 de mayo. Las fechas exactas se publican en la página del programa y en la oficina de admisiones.",
+      "categoria": "admision"
+    },
+    {
+      "pregunta": "¿Cuáles son los requisitos de admisión?",
+      "respuesta": "Necesitas título de bachiller, resultados de la prueba de Estado, documento de identidad y el formulario de inscripción diligenciado. Para posgrado se pide título profesional y hoja de vida.",
+      "categoria": "admision"
+    },
+    {
+      "pregunta": "¿Cuánto cuesta el semestre?",
+      "respuesta": "La matrícula ordinaria del semestre cuesta 4.850.000 pesos para pregrado y 6.200.000 pesos para posgrado. Los estudiantes con descuento pagan según el estrato y el promedio.",
+      "categoria": "costos"
+    },
+    {
+      "pregunta": "¿Hay becas o descuentos?",
+      "respuesta": "Sí. Hay beca de excelencia académica (promedio superior a 4,3), descuento por hermanos, descuento para egresados y apoyo socioeconómico. La solicitud se hace en la oficina de bienestar al inicio de cada semestre.",
+      "categoria": "costos"
+    },
+    {
+      "pregunta": "¿Cuál es el calendario académico?",
+      "respuesta": "El semestre 2026-2 va del 28 de julio al 28 de noviembre. Matrículas del 7 al 18 de julio, semana de nivelación del 21 al 25 de julio y exámenes finales del 16 al 27 de noviembre.",
+      "categoria": "calendario"
+    },
+    {
+      "pregunta": "¿Cómo hago la homologación de materias?",
+      "respuesta": "Debes presentar el certificado de notas y los programas de las materias aprobadas en la secretaría académica. El comité de homologación responde en un plazo de 10 días hábiles.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Cuánto dura el programa?",
+      "respuesta": "El pregrado dura 10 semestres y la maestría 4 semestres. La especialización dura 2 semestres.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Qué modalidad tiene el programa?",
+      "respuesta": "El pregrado es presencial con algunas materias en modalidad híbrida. La maestría tiene modalidad presencial y virtual sincrónica, según el énfasis.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Hay horarios nocturnos o de fin de semana?",
+      "respuesta": "Sí, el programa ofrece un grupo nocturno de 18:00 a 22:00 y un grupo de fin de semana para estudiantes que trabajan. La disponibilidad depende del número de inscritos.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Cómo contacto al coordinador del programa?",
+      "respuesta": "El coordinador atiende en la oficina 302 del bloque B, de lunes a viernes de 8:00 a 12:00, y por correo en coordinacion@programa.edu.co.",
+      "categoria": "contacto"
+    },
+    {
+      "pregunta": "¿Dónde queda la universidad?",
+      "respuesta": "El campus principal queda en la carrera 45 # 26-85, sede norte. Hay estaciones de transporte público a 5 minutos y parqueadero para estudiantes.",
+      "categoria": "contacto"
+    },
+    {
+      "pregunta": "¿Qué documentos necesito para matricularme?",
+      "respuesta": "Documento de identidad, certificado de notas del semestre anterior, recibo de pago de matrícula y el formulario de actualización de datos. Los menores de edad deben presentar autorización del acudiente.",
+      "categoria": "admision"
+    },
+    {
+      "pregunta": "¿Cómo pago la matrícula?",
+      "respuesta": "El pago se hace en línea desde el portal estudiantil con tarjeta, PSE o efectivo en corresponsales bancarios. El recibo se genera 48 horas después de la liquidación.",
+      "categoria": "costos"
+    },
+    {
+      "pregunta": "¿Hay prueba de admisión?",
+      "respuesta": "Para pregrado se tienen en cuenta los resultados de la prueba de Estado y el promedio del colegio. Para posgrado hay una entrevista y una prueba de conocimientos según el programa.",
+      "categoria": "admision"
+    },
+    {
+      "pregunta": "¿Puedo estudiar y trabajar al mismo tiempo?",
+      "respuesta": "Sí. El programa tiene grupo nocturno y de fin de semana, y algunas materias se pueden ver en modalidad híbrida. Ten en cuenta que la carga académica recomendada es de 5 materias por semestre.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Cuándo salen los resultados de admisión?",
+      "respuesta": "Los resultados se publican el 12 de junio en el portal de admisiones. Los admitidos tienen hasta el 26 de junio para formalizar la matrícula.",
+      "categoria": "admision"
+    },
+    {
+      "pregunta": "¿Cómo solicito una constancia de estudio?",
+      "respuesta": "La constancia se solicita en el portal estudiantil, sección Trámites, y se entrega en formato digital en un plazo de 3 días hábiles. Es gratuita.",
+      "categoria": "tramites"
+    },
+    {
+      "pregunta": "¿Qué pasa si pierdo una materia?",
+      "respuesta": "Puedes habilitarla en el siguiente semestre pagando el derecho de habilitación. Si pierdes la misma materia dos veces, el comité académico define el plan de recuperación.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Cómo funciona la cancelación de semestre?",
+      "respuesta": "La cancelación total se solicita en secretaría académica antes de la semana 10 y no genera devolución de dinero. Después de esa fecha se registra como cancelación extemporánea.",
+      "categoria": "tramites"
+    },
+    {
+      "pregunta": "¿Hay intercambios internacionales?",
+      "respuesta": "Sí, hay convenios con universidades de España, México, Chile y Brasil. La convocatoria se abre en febrero y se requiere promedio superior a 3,8 y nivel B1 de idioma.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Cuál es el correo de la oficina de admisiones?",
+      "respuesta": "La oficina de admisiones responde en admisiones@programa.edu.co y en la línea telefónica 601 555 0123, de lunes a viernes de 8:00 a 17:00.",
+      "categoria": "contacto"
+    },
+    {
+      "pregunta": "¿Cómo obtengo el carné estudiantil?",
+      "respuesta": "El carné se entrega en la oficina de registro en la primera semana de clases. Debes llevar documento de identidad y una foto reciente. También está disponible en formato digital en el portal.",
+      "categoria": "tramites"
+    },
+    {
+      "pregunta": "¿Cuáles son los requisitos de grado?",
+      "respuesta": "Para grado necesitas aprobar todas las materias, cumplir las horas de prácticas, presentar el trabajo de grado y estar a paz y salvo con la biblioteca y la oficina financiera.",
+      "categoria": "grado"
+    },
+    {
+      "pregunta": "¿Hay doble titulación?",
+      "respuesta": "Sí, hay doble titulación con tres universidades europeas. Se solicita a partir del sexto semestre, con promedio superior a 4,0 y certificado de idioma.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Hay prácticas profesionales?",
+      "respuesta": "Las prácticas son obligatorias y equivalen a 12 créditos. La oficina de egresados publica las vacantes cada semestre y también puedes proponer una empresa propia.",
+      "categoria": "academico"
+    },
+    {
+      "pregunta": "¿Cómo solicito una beca socioeconómica?",
+      "respuesta": "La solicitud se radica en bienestar universitario con la encuesta socioeconómica y los soportes de ingresos familiares. El comité responde en un plazo de 15 días hábiles.",
+      "categoria": "costos"
+    }
+  ]
+}
