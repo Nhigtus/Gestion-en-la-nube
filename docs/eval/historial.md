@@ -15,3 +15,4 @@ El modo `offline` evalúa recuperación + guardarraíl (sin modelo) y el modo
 | 2026-10-28T19:36:31+00:00 | `0714ce7` | offline | 10/10 | 0 |
 | 2026-10-28T19:42:53+00:00 | `d00127d` | offline | 10/10 | 0 |
 | 2026-10-28T20:06:01+00:00 | `0d175ae` | offline | 10/10 | 0 |
+| 2026-10-28T20:14:25+00:00 | `0c10b83` | offline | 10/10 | 0 |
