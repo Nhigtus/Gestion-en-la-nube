@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  iac:
+    name: Lint de CloudFormation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar cfn-lint
+        run: pip install cfn-lint
+      - name: Validar templates
+        run: cfn-lint --version && cfn-lint iac/*.yaml
+
+  app:
+    name: Tests y build de la app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: pip install -r app/requirements.txt
+      - name: Tests
+        run: pytest -q app/tests
+      - name: Build de la imagen Docker
+        run: docker build -t gtn-app:ci app/
+      - name: Smoke test del contenedor
+        run: |
+          docker run -d --name gtn -p 8000:8000 gtn-app:ci
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8000/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs gtn
+          exit 1
