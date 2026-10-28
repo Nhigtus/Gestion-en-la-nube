@@ -8,3 +8,4 @@ El modo `offline` evalúa recuperación + guardarraíl (sin modelo) y el modo
 | Fecha (UTC) | Commit | Modo | Puntaje | Alucinaciones |
 |---|---|---|---|---|
 | 2026-10-28T18:59:26+00:00 | `c6fbc90` | offline | 10/10 | 0 |
+| 2026-10-28T19:05:37+00:00 | `0d0faa1` | offline | 10/10 | 0 |
