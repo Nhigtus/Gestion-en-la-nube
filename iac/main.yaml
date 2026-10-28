@@ -408,12 +408,22 @@ Resources:
     Type: AWS::Budgets::Budget
     Properties:
       Budget:
-        BudgetName: !Sub "gtn-${NombreEquipo}-tope"
+        # CloudFormation reemplaza el recurso al cambiar sus notificaciones.
+        # Si el nombre no cambia, el alta choca con el presupuesto anterior
+        # (AlreadyExists). Incluir el monto en el nombre hace que un cambio de
+        # tope genere un nombre nuevo; para cambiar solo las alertas hay que
+        # cambiar tambien el sufijo (ver iac/README.md).
+        BudgetName: !Sub "gtn-${NombreEquipo}-tope${TopeGastoUSD}-alertas"
         BudgetType: COST
         TimeUnit: MONTHLY
         BudgetLimit:
           Amount: !Ref TopeGastoUSD
           Unit: USD
+      ResourceTags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
       NotificationsWithSubscribers:
         - Notification:
             NotificationType: ACTUAL
