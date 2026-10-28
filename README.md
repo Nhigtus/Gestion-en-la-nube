@@ -75,6 +75,18 @@ Ver `docs/costos.md`. **≈ USD 7,15/mes** con la EC2 8 h/día; **≈ USD 17,30/
 Esa diferencia es la razón por la que la arquitectura objetivo es serverless: con Bedrock el mismo
 tráfico cuesta ≈ USD 1,50 y sí puede estar 24/7.
 
+## 🔌 API
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `POST` | `/api/chat` | `{mensaje, sesion}` → respuesta, FAQ usadas, latencia, tokens y costo |
+| `GET` | `/api/historial/<sesion>` | Historial de la conversación (DynamoDB, TTL 30 días) |
+| `GET` | `/api/uso` | Consultas, tokens y costo del mes contra el tope |
+| `GET` | `/health` | Estado, modelo y proveedor |
+
+La base de FAQ se carga sola en el primer arranque (`app/data/faq.json`, 26 preguntas de ejemplo).
+El prompt y la estrategia de contexto están documentados en `docs/prompt.md`.
+
 ## 🚀 Cómo levantar en local
 
 ```bash
@@ -82,7 +94,7 @@ cd app
 cp .env.example .env
 docker compose up -d --build
 docker compose exec ollama ollama pull qwen2.5:1.5b-instruct
-# http://localhost:8000/health
+# http://localhost:8000/  (sin credenciales de AWS el chat no responde: usa DynamoDB)
 ```
 
 ## ☁️ Cómo desplegar en AWS
@@ -103,7 +115,7 @@ Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
 | Hito | Estado |
 |---|---|
 | 0 — Ficha del caso | ✅ README, decisiones, costos, backlog e IaC |
-| 6–7 — Servicio en línea | 🔄 EC2 + Docker + Ollama desplegados; chat en implementación |
+| 6–7 — Servicio en línea | ✅ EC2 + Docker + Ollama; chat con FAQ, historial y contador de uso |
 | 9–10 — Arquitectura (Nota 2) | ⏳ diagrama + 6 pilares |
 | 11–12 — Automatización | ⏳ CI/CD + stack completo |
 | 13–14 — Seguridad y costos | ⏳ auditoría IAM + FinOps |
