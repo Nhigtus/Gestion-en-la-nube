@@ -29,7 +29,6 @@ aws cloudformation deploy \
   --parameter-overrides \
       NombreEquipo=equipo-8 \
       NumeroProyecto=NN \
-      EmailAlerta=director@ejemplo.com \
       TopeGastoUSD=10
 ```
 
@@ -94,7 +93,8 @@ aws ec2 describe-instances --filters "Name=tag:Equipo,Values=equipo-8" \
 | Sólo datos (EC2 apagada todo el mes) | DynamoDB/S3/Logs | ≈ 0,55 |
 | Arquitectura objetivo con Bedrock | Lambda + API Gateway + DynamoDB + Bedrock | ≈ 1,50 |
 
-Tope duro configurado: `TopeGastoUSD` (10) con alarma al 80 % y proyección al 100 %.
+Tope configurado: `TopeGastoUSD` (10) en AWS Budgets, sin suscripciones ni correos.
+El laboratorio tiene además su propio límite de crédito por cuenta.
 
 ## Límites del laboratorio (importante)
 

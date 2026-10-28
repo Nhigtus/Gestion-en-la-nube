@@ -34,11 +34,6 @@ Parameters:
       - prod
     Description: Ambiente de despliegue.
 
-  EmailAlerta:
-    Type: String
-    Default: ""
-    Description: Correo para las alarmas de presupuesto. Vacio = el presupuesto se crea sin suscriptor.
-
   TopeGastoUSD:
     Type: Number
     Default: 10
@@ -96,7 +91,6 @@ Parameters:
     Description: Dias de retencion de los logs de CloudWatch.
 
 Conditions:
-  TieneEmailAlerta: !Not [!Equals [!Ref EmailAlerta, ""]]
   UsaOllama: !Equals [!Ref ProveedorLLM, ollama]
 
 Resources:
@@ -405,25 +399,8 @@ Resources:
         - {Key: Ambiente, Value: !Ref Ambiente}
 
   # ============================================================== ALERTAS
-  TopicoAlertas:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub "gtn-${NombreEquipo}-alertas"
-      DisplayName: Alertas de gasto GTN
-      Tags:
-        - {Key: Curso, Value: GTN-2026-2}
-        - {Key: Equipo, Value: !Ref NombreEquipo}
-        - {Key: Proyecto, Value: !Ref NumeroProyecto}
-        - {Key: Ambiente, Value: !Ref Ambiente}
-
-  SuscripcionAlertas:
-    Type: AWS::SNS::Subscription
-    Condition: TieneEmailAlerta
-    Properties:
-      TopicArn: !Ref TopicoAlertas
-      Protocol: email
-      Endpoint: !Ref EmailAlerta
-
+  # Presupuesto de solo lectura: no crea suscripciones ni envia correos.
+  # El tope se consulta en la consola de AWS Budgets y en el contador de la tabla Uso.
   PresupuestoMensual:
     Type: AWS::Budgets::Budget
     Properties:
@@ -434,23 +411,6 @@ Resources:
         BudgetLimit:
           Amount: !Ref TopeGastoUSD
           Unit: USD
-      NotificationsWithSubscribers:
-        - Notification:
-            NotificationType: ACTUAL
-            ComparisonOperator: GREATER_THAN
-            Threshold: 80
-            ThresholdType: PERCENTAGE
-          Subscribers:
-            - SubscriptionType: SNS
-              Address: !Ref TopicoAlertas
-        - Notification:
-            NotificationType: FORECASTED
-            ComparisonOperator: GREATER_THAN
-            Threshold: 100
-            ThresholdType: PERCENTAGE
-          Subscribers:
-            - SubscriptionType: SNS
-              Address: !Ref TopicoAlertas
 
   GrupoLogs:
     Type: AWS::Logs::LogGroup

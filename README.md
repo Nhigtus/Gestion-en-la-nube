@@ -10,7 +10,7 @@
 | Curso | GTN-2026-2 · Ambiente `lab` · Región `us-east-1` |
 | URL demo | _sale en el Output `UrlDemo` del stack_ |
 | Costo mensual estimado | **≈ USD 7,15** con la EC2 encendida 8 h/día (objetivo: ≤ USD 10) |
-| Despliegue | `aws cloudformation deploy --template-file iac/main.yaml --stack-name gtn-equipo-8 --capabilities CAPABILITY_NAMED_IAM --parameter-overrides NombreEquipo=equipo-8 NumeroProyecto=08 EmailAlerta=<correo>` |
+| Despliegue | `aws cloudformation deploy --template-file iac/main.yaml --stack-name gtn-equipo-8 --capabilities CAPABILITY_NAMED_IAM --parameter-overrides NombreEquipo=equipo-8 NumeroProyecto=08` |
 
 ## 🧩 El problema
 
@@ -34,7 +34,7 @@ Navegador ──► EC2 t3.small (puerto 80, sin SSH abierto)
                  │      └──► Ollama (contenedor) — qwen2.5:1.5b-instruct
                  └── CloudWatch Logs
                         ▲
-          AWS Budgets (tope 10 USD) + SNS
+          AWS Budgets (tope 10 USD, sin suscripciones)
 ```
 
 **Por qué el modelo va en contenedor:** en la cuenta de AWS Academy el acceso a Bedrock está
@@ -93,7 +93,7 @@ aws cloudformation deploy \
   --template-file iac/main.yaml \
   --stack-name gtn-equipo-8 \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides NombreEquipo=equipo-8 NumeroProyecto=08 EmailAlerta=<correo>
+  --parameter-overrides NombreEquipo=equipo-8 NumeroProyecto=08
 ```
 
 Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
