@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 import uuid
+from collections import deque
 
 from flask import Flask, jsonify, request, send_from_directory
 
@@ -21,7 +23,40 @@ import store
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
+
+# --------------------------------------------------------------- rate limit
+# Freno simple por IP para que un pico no dispare el consumo del modelo.
+# Con 2 workers de gunicorn cada uno lleva su propia cuenta, así que el límite
+# efectivo es ~2x. Se documenta en docs/costos.md; para un límite exacto haría
+# falta un contador en DynamoDB o un API Gateway delante.
+RATE_MAX_POR_MINUTO = int(os.getenv("RATE_MAX_POR_MINUTO", "30"))
+RATE_VENTANA_SEGUNDOS = int(os.getenv("RATE_VENTANA_SEGUNDOS", "60"))
+_RATE: dict[str, deque] = {}
+_RATE_LOCK = threading.Lock()
+
+
+def _rate_limit(ip: str) -> int:
+    """Devuelve 0 si la petición pasa o los segundos que hay que esperar."""
+    ahora = time.monotonic()
+    with _RATE_LOCK:
+        cola = _RATE.setdefault(ip, deque())
+        while cola and ahora - cola[0] > RATE_VENTANA_SEGUNDOS:
+            cola.popleft()
+        if len(cola) >= RATE_MAX_POR_MINUTO:
+            return max(1, int(RATE_VENTANA_SEGUNDOS - (ahora - cola[0])))
+        cola.append(ahora)
+        if len(_RATE) > 5000:  # poda de IPs inactivas
+            for clave in [k for k, v in _RATE.items() if not v][:1000]:
+                del _RATE[clave]
+    return 0
+
+
+def _reiniciar_rate_limit() -> None:
+    with _RATE_LOCK:
+        _RATE.clear()
+
+
 SIN_RESPUESTA = (
     "No tengo esa información en la base del programa. "
     "Escríbenos a admisiones@programa.edu.co y te respondemos."
@@ -56,6 +91,19 @@ def chat():
         return jsonify(error="La pregunta es demasiado larga (máximo 500 caracteres)"), 400
 
     seed.cargar_si_vacia()
+
+    espera = _rate_limit(request.remote_addr or "desconocida")
+    if espera:
+        respuesta = jsonify(
+            error=(
+                "Demasiadas consultas seguidas. Espera un momento y vuelve a intentar; "
+                "así cuidamos el tope de gasto del programa."
+            ),
+            reintenta_en_segundos=espera,
+        )
+        respuesta.status_code = 429
+        respuesta.headers["Retry-After"] = str(espera)
+        return respuesta
 
     if not store.dentro_de_presupuesto():
         uso = store.uso_del_mes()

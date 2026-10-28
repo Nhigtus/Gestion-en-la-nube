@@ -376,8 +376,34 @@ Resources:
         - {Key: Ambiente, Value: !Ref Ambiente}
 
   # ============================================================== ALERTAS
-  # Presupuesto de solo lectura: no crea suscripciones ni envia correos.
-  # El tope se consulta en la consola de AWS Budgets y en el contador de la tabla Uso.
+  # Tope mensual de gasto + alertas. El topic SNS no tiene suscriptores a
+  # proposito: las alertas quedan registradas y visibles en la consola de
+  # AWS Budgets, pero no se envia ningun correo ni se crea suscripcion.
+  TopicoAlertasGasto:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "gtn-${NombreEquipo}-alertas-gasto"
+      Tags:
+        - {Key: Curso, Value: GTN-2026-2}
+        - {Key: Equipo, Value: !Ref NombreEquipo}
+        - {Key: Proyecto, Value: !Ref NumeroProyecto}
+        - {Key: Ambiente, Value: !Ref Ambiente}
+
+  PoliticaTopicoAlertas:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref TopicoAlertasGasto
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PermiteAPresupuestosPublicar
+            Effect: Allow
+            Principal:
+              Service: budgets.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref TopicoAlertasGasto
+
   PresupuestoMensual:
     Type: AWS::Budgets::Budget
     Properties:
@@ -388,6 +414,23 @@ Resources:
         BudgetLimit:
           Amount: !Ref TopeGastoUSD
           Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref TopicoAlertasGasto
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref TopicoAlertasGasto
 
 Outputs:
   UrlDemo:
@@ -445,3 +488,7 @@ Outputs:
   TopeGastoMensual:
     Description: Tope mensual configurado en USD
     Value: !Ref TopeGastoUSD
+
+  TopicoAlertasGasto:
+    Description: Topic SNS de las alertas del presupuesto (sin suscriptores, sin correos)
+    Value: !Ref TopicoAlertasGasto

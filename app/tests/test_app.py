@@ -15,8 +15,12 @@ import store  # noqa: E402
 @pytest.fixture()
 def cliente():
     app.config.update(TESTING=True)
+    import app as app_mod
+
+    app_mod._reiniciar_rate_limit()
     with app.test_client() as c:
         yield c
+    app_mod._reiniciar_rate_limit()
 
 
 @pytest.fixture()
@@ -197,3 +201,66 @@ def test_admin_convierte_sin_respuesta_en_faq(cliente, token_admin, monkeypatch)
     assert r.status_code == 201
     assert guardadas[0]["pregunta"] == "¿Hay bus de la universidad?"
     assert borradas == ["abc123"]
+
+
+# ----------------------------------------------------------- tope y consumo
+def _sin_modelo(monkeypatch, presupuesto=True):
+    """Deja el chat funcionando sin DynamoDB ni Ollama."""
+    monkeypatch.setattr(seed, "cargar_si_vacia", lambda: 0)
+    monkeypatch.setattr(store, "dentro_de_presupuesto", lambda: presupuesto)
+    monkeypatch.setattr(store, "listar_faq", lambda: [])
+    monkeypatch.setattr(store, "historial", lambda *a, **k: [])
+    monkeypatch.setattr(store, "registrar_sin_respuesta", lambda *a, **k: None)
+    monkeypatch.setattr(store, "guardar_turno", lambda *a, **k: None)
+    monkeypatch.setattr(store, "sumar_uso", lambda *a, **k: None)
+
+
+def test_tope_de_gasto_corta_el_chat_sin_llamar_al_modelo(cliente, monkeypatch):
+    _sin_modelo(monkeypatch, presupuesto=False)
+    monkeypatch.setattr(store, "listar_faq", lambda: pytest.fail("no debe consultar la base"))
+    monkeypatch.setattr(
+        store,
+        "uso_del_mes",
+        lambda: {"consultas": 10, "costo_usd": 10.0, "tope_usd": 10.0, "max_consultas": 5000},
+    )
+    r = cliente.post("/api/chat", json={"mensaje": "¿Hay becas?"})
+    assert r.status_code == 429
+    assert "tope de gasto" in r.get_json()["error"].lower()
+    assert r.get_json()["uso"]["costo_usd"] == 10.0
+
+
+def test_rate_limit_responde_429(cliente, monkeypatch):
+    import app as app_mod
+
+    monkeypatch.setattr(app_mod, "RATE_MAX_POR_MINUTO", 2)
+    _sin_modelo(monkeypatch)
+
+    assert cliente.post("/api/chat", json={"mensaje": "hola"}).status_code == 200
+    assert cliente.post("/api/chat", json={"mensaje": "hola"}).status_code == 200
+    r = cliente.post("/api/chat", json={"mensaje": "hola"})
+    assert r.status_code == 429
+    assert int(r.headers["Retry-After"]) >= 1
+    assert r.get_json()["reintenta_en_segundos"] >= 1
+
+
+def test_uso_del_mes_calcula_porcentaje_y_promedio(monkeypatch):
+    from decimal import Decimal
+
+    class TablaFalsa:
+        def get_item(self, **_):
+            return {
+                "Item": {
+                    "consultas": 10,
+                    "tokens_entrada": 100,
+                    "tokens_salida": 50,
+                    "costo_usd": Decimal("2.5"),
+                }
+            }
+
+    monkeypatch.setattr(store, "_tabla", lambda _n: TablaFalsa())
+    u = store.uso_del_mes()
+    assert u["tokens_total"] == 150
+    assert u["porcentaje_usado"] == 25.0
+    assert u["restante_usd"] == 7.5
+    assert u["costo_promedio"] == 0.25
+    assert u["consultas_restantes"] == u["max_consultas"] - 10

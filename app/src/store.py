@@ -194,14 +194,22 @@ def sumar_uso(tokens_entrada: int, tokens_salida: int, costo: Decimal) -> None:
 def uso_del_mes() -> dict:
     r = _tabla(TABLA_USO).get_item(Key={"mes": _mes()})
     item = r.get("Item", {})
+    consultas = int(item.get("consultas", 0))
+    costo = float(item.get("costo_usd", 0))
+    tope = float(TOPE_USD)
     return {
         "mes": _mes(),
-        "consultas": int(item.get("consultas", 0)),
+        "consultas": consultas,
         "tokens_entrada": int(item.get("tokens_entrada", 0)),
         "tokens_salida": int(item.get("tokens_salida", 0)),
-        "costo_usd": float(item.get("costo_usd", 0)),
-        "tope_usd": float(TOPE_USD),
+        "tokens_total": int(item.get("tokens_entrada", 0)) + int(item.get("tokens_salida", 0)),
+        "costo_usd": costo,
+        "tope_usd": tope,
+        "restante_usd": round(max(0.0, tope - costo), 6),
+        "porcentaje_usado": round(min(100.0, 100.0 * costo / tope) if tope else 0.0, 1),
+        "costo_promedio": round(costo / consultas, 6) if consultas else 0.0,
         "max_consultas": MAX_CONSULTAS_MES,
+        "consultas_restantes": max(0, MAX_CONSULTAS_MES - consultas),
     }
 
 

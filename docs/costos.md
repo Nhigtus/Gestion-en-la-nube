@@ -53,12 +53,65 @@ bajo y horario de oficina, el contenedor es razonable; 24/7 lo hace 11 veces má
 7. **Sin NAT Gateway ni ALB** (USD 32/mes cada uno): la EC2 tiene IP pública y security group.
 8. **Sin S3 ni CloudWatch Logs**: los logs del contenedor quedan en el host (`docker logs`).
 
+## Dónde se corta el gasto (HU-03)
+
+| # | Barrera | Implementación | Efecto |
+|---|---|---|---|
+| 1 | Presupuesto | `AWS::Budgets::Budget` `gtn-equipo-8-tope` con alertas **ACTUAL 80 %** y **FORECASTED 100 %** | Aviso temprano al 80 % del gasto y proyección al 100 %, visible en la consola |
+| 2 | Contador | Tabla `gtn-equipo-8-uso`: consultas, tokens y costo del mes | Al llegar a **USD 10** o **5 000 consultas**, `/api/chat` responde `429` con mensaje de mantenimiento y **no llama al modelo** |
+| 3 | Rate limit | 30 consultas/minuto por IP en memoria (`RATE_MAX_POR_MINUTO`) | Un pico recibe `429` + `Retry-After`; con 2 workers de gunicorn el límite efectivo es ~60/min |
+
+Las alertas se publican en el topic SNS `gtn-equipo-8-alertas-gasto`, **sin suscriptores**: quedan
+registradas en AWS Budgets y no envían correos. Costo de SNS: USD 0 (no hay entregas).
+
+```bash
+aws budgets describe-notifications-for-budget --account-id 287834270100 \
+  --budget-name gtn-equipo-8-tope
+# ACTUAL > 80 % → topic …-alertas-gasto
+# FORECASTED > 100 % → topic …-alertas-gasto
+```
+
 ## Cómo se mide el costo real
 
-- AWS Cost Explorer filtrado por el tag `Equipo=equipo-8` y por servicio.
-- Contador de tokens en la tabla `Uso` (precio del modelo × tokens) para el costo por consulta.
-- AWS Budgets con el tope de 10 USD (sin suscripciones: se consulta en la consola y contra el contador de `Uso`).
+- **Cost Explorer** filtrado por servicio (la cuenta del laboratorio no etiqueta los costos por
+  proyecto en el primer día, así que se filtra por los servicios del stack).
+- **Contador de tokens** en la tabla `Uso` (precio del modelo × tokens) para el costo por consulta.
+- **AWS Budgets** con el tope de 10 USD: `ActualSpend` y `ForecastedSpend` sin suscripciones.
 - Reporte semanal: horas de EC2, consultas, tokens promedio, costo acumulado y proyección.
+
+### Medición del 28 de octubre de 2026 (mes en curso)
+
+```bash
+aws ce get-cost-and-usage --time-period Start=2026-10-01,End=2026-10-29 \
+  --granularity MONTHLY --metrics UnblendedCost \
+  --group-by Type=DIMENSION,Key=SERVICE
+aws budgets describe-budget --account-id 287834270100 \
+  --budget-name gtn-equipo-8-tope --query 'Budget.CalculatedSpend'
+```
+
+| Fuente | Valor | Lectura |
+|---|---|---|
+| Cost Explorer, total del mes | ≈ **USD 0,00** | El laboratorio cubre el consumo con crédito; el `UnblendedCost` neto queda en cero |
+| Cost Explorer, EC2 Compute | USD 0,00013 | Uso real de la instancia, absorbido por el crédito |
+| Budgets `ActualSpend` | **USD 0,00** | Coincide con Cost Explorer |
+| Budgets `ForecastedSpend` | **USD 0,084** | Proyección del mes; muy por debajo del tope de 10 |
+
+El gasto **estimado a precio público** sigue siendo el de la tabla de arriba (≈ 6,62 USD/mes con
+8 h/día); la diferencia con el medido es el crédito del laboratorio, no una optimización.
+
+### Costo por consulta medido por la app
+
+`/api/uso` devuelve `costo_promedio` y `costo_usd`. Con Ollama el precio por token es 0, así que el
+contador del modelo marca **USD 0,000000** por consulta; el costo real es el tiempo de EC2:
+
+| Consultas/mes | Costo de infraestructura (8 h/día) | Costo por consulta |
+|---|---|---|
+| 1 000 | ≈ 6,62 | ≈ USD 0,0066 |
+| 10 000 | ≈ 6,62 | ≈ USD 0,00066 |
+| 100 000 | ≈ 6,62 | ≈ USD 0,000066 |
+
+Por eso el contador de tokens sirve para vigilar el tope lógico y Cost Explorer para el gasto real:
+son dos métricas distintas y ambas se muestran en el panel.
 
 ## Costo de las piezas nuevas (hito 8)
 

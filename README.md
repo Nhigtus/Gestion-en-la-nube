@@ -67,7 +67,7 @@ y el análisis están en `docs/decisiones.md`.
 | Historial | DynamoDB (sesión + timestamp) | Sólo memoria del navegador | Persistencia y evidencia para la demo |
 | Acceso a la EC2 | SSM Session Manager | SSH con puerto 22 | Sin puerto abierto ni llaves que rotar |
 | CI | GitHub Actions | Jenkins en la EC2 | Gratis en repo público, sin servidor que mantener |
-| Tope de gasto | Budgets + contador en DynamoDB | Sólo confiar en el panel de AWS | Dos barreras independientes |
+| Tope de gasto | AWS Budgets con alertas 80 %/100 % + contador en DynamoDB + rate limit | Sólo confiar en el panel de AWS | Tres barreras independientes, sin suscripciones ni correos |
 | Token del panel | Generado al azar y guardado en SSM SecureString | Token en `.env` o en la plantilla | Cero secretos en el repo y sin despliegue extra |
 | Evaluación de calidad | Set de 10 preguntas en el CI, mínimo 8/10 | Revisión manual del prompt | Detecta regresiones antes de mezclar |
 
@@ -81,9 +81,9 @@ tráfico cuesta ≈ USD 1,50 y sí puede estar 24/7.
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| `POST` | `/api/chat` | `{mensaje, sesion}` → respuesta, FAQ usadas, latencia, tokens y costo |
+| `POST` | `/api/chat` | `{mensaje, sesion}` → respuesta, FAQ usadas, latencia, tokens y costo. Responde `429` si se alcanzó el tope del mes o si se superan 30 consultas/minuto por IP |
 | `GET` | `/api/historial/<sesion>` | Historial de la conversación (DynamoDB, TTL 30 días) |
-| `GET` | `/api/uso` | Consultas, tokens y costo del mes contra el tope |
+| `GET` | `/api/uso` | Consultas, tokens, costo del mes, porcentaje del tope y costo promedio por consulta |
 | `GET` | `/health` | Estado, modelo y proveedor |
 | `GET` | `/admin` | Panel para mantener la base de FAQ (token en SSM, no en el repo) |
 | `GET` | `/api/admin/faqs` | Lista la base completa (requiere `X-Admin-Token`) |
@@ -107,6 +107,26 @@ aws ssm get-parameter --name /gtn/equipo-8/admin-token \
 
 Sin token (o con uno inválido) los endpoints responden `401` y no modifican nada.
 Las preguntas que el bot no supo responder se convierten en FAQ desde la segunda pestaña del panel.
+
+La tercera pestaña, **Consumo**, muestra el mes en curso: consultas, tokens de entrada/salida, costo
+estimado, costo promedio por consulta y una barra con el porcentaje del tope de USD 10. Si el tope se
+alcanza, el chat deja de llamar al modelo y responde con un mensaje de mantenimiento.
+
+### Tope de gasto (HU-03)
+
+| Barrera | Dónde vive | Qué hace |
+|---|---|---|
+| Presupuesto | AWS Budgets `gtn-equipo-8-tope` | Alerta al **80 % real** y al **100 % proyectado**; se publica en un topic SNS sin suscriptores (no envía correos) |
+| Contador | DynamoDB `gtn-equipo-8-uso` | Suma consultas, tokens y costo; al llegar a USD 10 o 5 000 consultas el chat responde `429` sin llamar al modelo |
+| Rate limit | Memoria del contenedor | Máximo 30 consultas/minuto por IP (configurable con `RATE_MAX_POR_MINUTO`); el exceso recibe `429` y `Retry-After` |
+
+```bash
+# alertas y gasto del presupuesto
+aws budgets describe-notifications-for-budget --account-id 287834270100 \
+  --budget-name gtn-equipo-8-tope
+aws budgets describe-budget --account-id 287834270100 \
+  --budget-name gtn-equipo-8-tope --query 'Budget.CalculatedSpend'
+```
 
 ### Evaluación automática de calidad (reto extra)
 
@@ -152,7 +172,7 @@ Detalle, costos, cómo detener y cómo destruir en `iac/README.md`.
 | 6–7 — Servicio en línea | ✅ EC2 + Docker + Ollama; chat, historial, contador de uso, panel de FAQ y preguntas sin respuesta |
 | 9–10 — Arquitectura (Nota 2) | ⏳ diagrama + 6 pilares |
 | 11–12 — Automatización | ⏳ CI con cfn-lint, tests, build y evaluación de calidad; falta el despliegue automático |
-| 13–14 — Seguridad y costos | ⏳ auditoría IAM + FinOps |
+| 13–14 — Seguridad y costos | ⏳ tope y alertas de gasto listos; falta la auditoría IAM (RNF-03) |
 | 16 — Sustentación | ⏳ demo |
 | Extra | ✅ Evaluación automática de calidad en el pipeline (mínimo 8/10) |
 
