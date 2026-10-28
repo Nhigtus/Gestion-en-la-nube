@@ -77,19 +77,33 @@ def seleccionar(pregunta: str, faqs: list[dict], k: int = 5) -> tuple[list[dict]
     if not consulta:
         return [], 0.0
 
-    docs = [(faq, set(_documento(faq))) for faq in faqs]
-    pesos = _idf([list(d) for _, d in docs])
+    docs = [
+        (faq, set(_documento(faq)), set(terminos(faq.get("pregunta", "")))) for faq in faqs
+    ]
+    pesos = _idf([list(doc) for _, doc, _ in docs])
     total = sum(pesos.get(t, 0.0) for t in consulta) or 1.0
 
     puntuadas = []
-    for faq, doc in docs:
+    for faq, doc, en_pregunta in docs:
         coincidencias = consulta & doc
         puntaje = sum(pesos.get(t, 0.0) for t in coincidencias) / total
-        puntuadas.append((puntaje, faq))
+        puntuadas.append((puntaje, len(coincidencias & en_pregunta), faq))
+
+    # Si la pregunta trae vocabulario que no está en la base, la coincidencia
+    # tiene que tocar la PREGUNTA de la FAQ y no sólo su respuesta. Sin esto,
+    # "¿Tienen cafetería en el campus?" coincidía con "campus" en la respuesta
+    # de otra FAQ, daba 1.0 y el modelo inventaba una cafetería.
+    desconocidos = consulta - set(pesos)
+    if desconocidos:
+        puntuadas = [tupla for tupla in puntuadas if tupla[1] > 0]
+        if not puntuadas:
+            return [], 0.0
 
     puntuadas.sort(key=lambda par: par[0], reverse=True)
-    mejores = [faq for puntaje, faq in puntuadas[:k] if puntaje >= UMBRAL / 2]
-    return mejores, round(puntuadas[0][0], 4) if puntuadas else 0.0
+    mejor_puntaje = puntuadas[0][0]
+
+    mejores = [faq for puntaje, _, faq in puntuadas[:k] if puntaje >= UMBRAL / 2]
+    return mejores, round(mejor_puntaje, 4)
 
 
 def contexto(seleccion: list[dict]) -> str:

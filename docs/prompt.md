@@ -4,7 +4,9 @@
 
 1. **Recuperación**: de la base de FAQ en DynamoDB se eligen las **5 preguntas más parecidas** por
    cobertura de términos ponderada por IDF (TF-IDF, sin embeddings). Se descarta si ninguna supera
-   el umbral `0.34`.
+   el umbral `0.34`. Si la pregunta trae vocabulario que no está en la base, la coincidencia debe
+   tocar **la pregunta** de la FAQ y no sólo su respuesta: sin eso, “¿Tienen cafetería en el
+   campus?” coincidía con “campus” en la respuesta de otra FAQ y el modelo inventaba.
 2. **Contexto**: sólo esas 5 FAQ viajan en el prompt (≈ 400–700 tokens), no la base completa.
 3. **Generación**: el modelo responde con `temperature = 0.2` y `num_predict = 300`, en español y
    en máximo 5 frases.
